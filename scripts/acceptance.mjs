@@ -47,14 +47,24 @@ const port1 = /dsh 就绪：http:\/\/127\.0\.0\.1:(\d+)/.exec(readLog())?.[1]
 record('首次启动就绪', true, `端口 ${port1}`)
 
 // ---- 崩溃自动重启：杀掉 dsh 子进程，看外壳是否把它拉回来 ----
-const before = readLog().length
+// 判据必须是「就绪行**又多了一条**」。用 waitFor(/dsh 就绪/) 会被日志里已有的
+// 那条旧就绪行立刻满足，而「日志变长」也会被 dsh 被杀时吐出的 stderr 满足——
+// 两者都会让这个用例在实际没有重启时照样通过。
+const countReady = () => [...readLog().matchAll(/dsh 就绪：http:\/\/127\.0\.0\.1:(\d+)/g)].length
+const readyBefore = countReady()
 try {
   execFileSync('powershell', ['-NoProfile', '-Command',
     "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -like '*dsh-bundled*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"],
     { timeout: 30000 })
-  const restarted = await waitFor(/dsh 就绪：http/, 90000) && readLog().length > before
+  const deadline = Date.now() + 90000
+  let restarted = false
+  while (Date.now() < deadline) {
+    if (countReady() > readyBefore) { restarted = true; break }
+    await sleep(1000)
+  }
   const port2 = [...readLog().matchAll(/dsh 就绪：http:\/\/127\.0\.0\.1:(\d+)/g)].pop()?.[1]
-  record('杀掉 dsh 后自动重启', restarted, restarted ? `新端口 ${port2}` : '未见重新就绪')
+  record('杀掉 dsh 后自动重启', restarted,
+    restarted ? `就绪行 ${readyBefore} → ${countReady()} 条，新端口 ${port2}` : '90 秒内未见新的就绪行')
 } catch (error) {
   record('杀掉 dsh 后自动重启', false, error.message)
 }
