@@ -11,3 +11,6 @@ resources/runtime/
 resources/dsh-bundled/
 out/
 release/
+
+# 图标生成的临时工作目录
+resources/.icon-tmp/
