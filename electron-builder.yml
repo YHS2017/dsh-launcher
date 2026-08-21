@@ -27,7 +27,15 @@ extraResources:
     filter: ['**/*']
   - from: resources/dsh-bundled/node_modules
     to: dsh-bundled/node_modules
-    filter: ['**/*']
+    # 排除与本包目标架构（win32-x64）无关的预编译二进制，约 13MB。
+    # 只排架构明确不符的，不碰 sharp-wasm32 之类的回退实现——
+    # 那是原生模块加载失败时的兜底路径，省那几 MB 不值得赌它用不上。
+    filter:
+      - '**/*'
+      - '!node-pty/prebuilds/win32-arm64/**'
+      - '!node-pty/prebuilds/darwin-*/**'
+      - '!node-pty/prebuilds/linux-*/**'
+      - '!node-pty/third_party/**/win10-arm64/**'
   - from: resources/icon.png
     to: icon.png
   - from: resources/icon.ico
@@ -37,19 +45,22 @@ win:
   target:
     - target: nsis
       arch: [x64]
-  # 只处理主 exe，跳过内置资源里的第三方原生二进制。
-  # dsh 依赖树里带着 node-pty 的 OpenConsole.exe、ripgrep 的 rg.exe 等一批
-  # exe/dll，electron-builder 默认会逐个对它们做签名/资源编辑——这对第三方
-  # 二进制毫无意义，却极慢，实测会让打包卡死在这一步（CPU 归零、不再有输出、
-  # 也不报错）。主 exe 仍需处理，图标与版本信息靠它嵌入。
-  signIgnore:
-    - 'resources[\\/]dsh-bundled[\\/].*'
-    - 'resources[\\/]runtime[\\/].*'
+  # 跳过代码签名。本项目没有签名证书，这道工序不产生任何结果，
+  # 却要对 dsh 依赖树里的每个 exe/dll（node-pty 的 OpenConsole.exe、
+  # ripgrep 的 rg.exe 等）逐个调 signtool——极慢，实测直接卡死在这一步：
+  # CPU 归零、日志停更、进程还在但不再推进，且不报错。
+  #
+  # 注意它与 signAndEditExecutable 是两回事：后者默认 true，负责用 resedit
+  # 给主 exe 写入图标与版本信息，必须保留，关掉会导致 exe 没有图标。
+  signExecutable: false
   # 直接给 ICO：里面备了 16~256 各号原生尺寸，任务栏、桌面、文件列表各取所需，
   # 不必由 electron-builder 从单张 PNG 现转——那样小尺寸会被缩放出锯齿。
   icon: resources/icon.ico
 
 nsis:
+  # 不生成 blockmap。它服务于增量更新，而本项目不做自动更新，
+  # 生成它却要把整个包再扫一遍。
+  differentialPackage: false
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
