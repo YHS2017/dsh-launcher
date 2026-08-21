@@ -7,6 +7,7 @@ import { IPC, type AboutInfo, type SplashPayload } from './ipc/channels.ts'
 import { resolvePaths, DSH_PACKAGE_SUBPATH } from './paths.ts'
 import { DshSupervisor } from './services/dsh-supervisor.ts'
 import { LogStore } from './services/log-store.ts'
+import { NpmUpdater } from './services/npm-updater.ts'
 import { SettingsStore } from './services/settings-store.ts'
 import { createTray } from './ui/tray.ts'
 import { shouldHideOnClose } from './ui/window-manager.ts'
@@ -17,6 +18,11 @@ const paths = resolvePaths({
 })
 const settingsStore = new SettingsStore(paths.settingsFile)
 const logStore = new LogStore(paths.logsDir)
+const updater = new NpmUpdater({
+  runtimesDir: paths.runtimesDir,
+  nodeExe: paths.nodeExe,
+  npmCli: paths.npmCli,
+})
 
 let splashWindow: BrowserWindow | undefined
 let mainWindow: BrowserWindow | undefined
@@ -24,6 +30,8 @@ let supervisor: DshSupervisor | undefined
 let tray: Tray | undefined
 /** 用户是否已选择退出。托盘「退出」与关窗隐藏共用一个窗口 close 事件，靠它区分。 */
 let quitting = false
+/** 已经因启动失败自动回退过一次，避免回退—失败—再回退的循环。 */
+let rolledBackOnce = false
 
 /** 读取某个 dsh 包根目录的版本号；不可用时返回 undefined。 */
 function readDshVersion(dshRoot: string): string | undefined {
@@ -218,6 +226,26 @@ ipcMain.handle(IPC.openLogFile, () => shell.openPath(logStore.filePath))
 ipcMain.handle(IPC.settingsRead, () => settingsStore.read())
 ipcMain.handle(IPC.settingsUpdate, (_event, patch: Partial<LauncherSettings>) => settingsStore.update(patch))
 ipcMain.handle(IPC.dshRestart, () => restartFromSplash())
+ipcMain.handle(IPC.updateCheck, async () => {
+  const settings = settingsStore.read()
+  const current = activeChoice?.version ?? '0.0.0'
+  return updater.checkForUpdate(settings.updateChannel, current)
+})
+
+ipcMain.handle(IPC.updateInstall, async (_event, version: string) => {
+  const dirName = await updater.install(version)
+  settingsStore.update({ activeRuntime: dirName })
+  // 装好即重启到新版本；若起不来，failed 分支会自动退回内置副本。
+  rolledBackOnce = false
+  await restartFromSplash()
+})
+
+ipcMain.handle(IPC.runtimeRollback, async () => {
+  settingsStore.update({ activeRuntime: null })
+  rolledBackOnce = false
+  await restartFromSplash()
+})
+
 ipcMain.handle(IPC.logsTail, (_event, count: number) => logStore.tail(count))
 ipcMain.handle(IPC.aboutInfo, (): AboutInfo => ({
   launcherVersion: app.getVersion(),

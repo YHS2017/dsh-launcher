@@ -8,6 +8,9 @@ export const IPC = {
   dshRestart: 'dsh:restart',
   logsTail: 'logs:tail',
   aboutInfo: 'about:info',
+  updateCheck: 'update:check',
+  updateInstall: 'update:install',
+  runtimeRollback: 'runtime:rollback',
 } as const
 
 export interface SplashPayload {

@@ -47,6 +47,14 @@
         <option value="latest">稳定版</option>
         <option value="next">预览版（跟随上游 master）</option>
       </select>
+
+      <div style="margin-top: 10px;">
+        <button id="check-update" type="button">检查更新</button>
+        <button id="install-update" type="button" class="primary" hidden>安装并重启</button>
+        <button id="rollback" type="button">回退到内置版本</button>
+      </div>
+      <p id="update-status" class="muted"></p>
+      <p class="muted">更新不会自动进行。新版本若无法启动，会自动退回内置版本。</p>
     </section>
 
     <p id="restart-hint" class="muted" hidden>端口或数据目录已修改，需要重启 dsh 才能生效。</p>

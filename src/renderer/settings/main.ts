@@ -64,3 +64,40 @@ void window.launcher.readSettings().then(settings => {
   initialRestartSensitive = restartSensitiveKey(settings)
   render(settings)
 })
+
+const updateStatus = el<HTMLParagraphElement>('update-status')
+const installButton = el<HTMLButtonElement>('install-update')
+let pendingVersion: string | undefined
+
+el<HTMLButtonElement>('check-update').addEventListener('click', () => {
+  updateStatus.textContent = '正在查询…'
+  installButton.hidden = true
+  void window.launcher.checkUpdate().then(info => {
+    if (info.hasUpdate) {
+      pendingVersion = info.available
+      updateStatus.textContent = `发现新版本 ${info.available}（当前 ${info.current}）`
+      installButton.hidden = false
+      return
+    }
+    updateStatus.textContent = `已是最新：${info.current}`
+  }).catch((error: unknown) => {
+    updateStatus.textContent = error instanceof Error ? error.message : String(error)
+  })
+})
+
+installButton.addEventListener('click', () => {
+  if (pendingVersion === undefined) return
+  updateStatus.textContent = `正在安装 ${pendingVersion}，依赖较多需要数分钟…`
+  installButton.disabled = true
+  void window.launcher.installUpdate(pendingVersion)
+    .then(() => { updateStatus.textContent = '已安装，正在重启 dsh…' })
+    .catch((error: unknown) => {
+      updateStatus.textContent = `安装失败：${error instanceof Error ? error.message : String(error)}`
+    })
+    .finally(() => { installButton.disabled = false })
+})
+
+el<HTMLButtonElement>('rollback').addEventListener('click', () => {
+  updateStatus.textContent = '正在回退到内置版本…'
+  void window.launcher.rollbackRuntime()
+})
