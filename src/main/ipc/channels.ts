@@ -6,6 +6,8 @@ export const IPC = {
   settingsRead: 'settings:read',
   settingsUpdate: 'settings:update',
   dshRestart: 'dsh:restart',
+  logsTail: 'logs:tail',
+  aboutInfo: 'about:info',
 } as const
 
 export interface SplashPayload {
@@ -14,4 +16,13 @@ export interface SplashPayload {
   message: string
   /** 失败时的诊断细节，通常是日志尾部。 */
   detail?: string
+}
+
+export interface AboutInfo {
+  launcherVersion: string
+  dshVersion: string
+  dshSource: 'bundled' | 'updated'
+  electronVersion: string
+  nodeVersion: string
+  logFile: string
 }

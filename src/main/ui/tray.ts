@@ -4,6 +4,8 @@ export interface TrayCallbacks {
   iconPath: string
   onShow: () => void
   onSettings: () => void
+  onLogs: () => void
+  onAbout: () => void
   onQuit: () => void
 }
 
@@ -14,6 +16,8 @@ export function createTray(callbacks: TrayCallbacks): Tray {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: '显示主窗口', click: callbacks.onShow },
     { label: '设置…', click: callbacks.onSettings },
+    { label: '日志…', click: callbacks.onLogs },
+    { label: '关于', click: callbacks.onAbout },
     { type: 'separator' },
     { label: '退出', click: callbacks.onQuit },
   ]))

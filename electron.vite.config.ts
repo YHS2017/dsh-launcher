@@ -15,6 +15,8 @@ export default defineConfig({
         input: {
           splash: resolve('src/renderer/splash/index.html'),
           settings: resolve('src/renderer/settings/index.html'),
+          logs: resolve('src/renderer/logs/index.html'),
+          about: resolve('src/renderer/about/index.html'),
         },
       },
     },

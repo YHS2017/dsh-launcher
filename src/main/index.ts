@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { app, BrowserWindow, ipcMain, Menu, shell, type Tray } from 'electron'
 import { resolveRuntime } from './core/runtime-resolver.ts'
 import type { LauncherSettings } from './core/settings-schema.ts'
-import { IPC, type SplashPayload } from './ipc/channels.ts'
+import { IPC, type AboutInfo, type SplashPayload } from './ipc/channels.ts'
 import { resolvePaths, DSH_PACKAGE_SUBPATH } from './paths.ts'
 import { DshSupervisor } from './services/dsh-supervisor.ts'
 import { LogStore } from './services/log-store.ts'
@@ -88,6 +88,49 @@ function showMainWindow(url: string): void {
 }
 
 let settingsWindow: BrowserWindow | undefined
+let logsWindow: BrowserWindow | undefined
+let aboutWindow: BrowserWindow | undefined
+/** 本次启动实际选中的 dsh，供关于页展示。 */
+let activeChoice: { version: string; source: 'bundled' | 'updated' } | undefined
+
+/** 打开一个外壳内部页面窗口；同一页面重复调用只聚焦既有窗口。 */
+function openShellWindow(
+  current: BrowserWindow | undefined,
+  options: { file: string; title: string; width: number; height: number },
+  assign: (win: BrowserWindow | undefined) => void,
+): void {
+  if (current !== undefined && !current.isDestroyed()) {
+    current.show()
+    current.focus()
+    return
+  }
+  const win = new BrowserWindow({
+    width: options.width,
+    height: options.height,
+    title: options.title,
+    icon: join(paths.resourcesRoot, 'icon.png'),
+    webPreferences: {
+      preload: join(import.meta.dirname, '../preload/index.mjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+  void win.loadFile(join(import.meta.dirname, options.file))
+  win.on('closed', () => { assign(undefined) })
+  assign(win)
+}
+
+function openLogsWindow(): void {
+  openShellWindow(logsWindow, {
+    file: '../renderer/logs/index.html', title: '日志 — DSH启动器', width: 900, height: 620,
+  }, win => { logsWindow = win })
+}
+
+function openAboutWindow(): void {
+  openShellWindow(aboutWindow, {
+    file: '../renderer/about/index.html', title: '关于 — DSH启动器', width: 560, height: 440,
+  }, win => { aboutWindow = win })
+}
 
 function openSettingsWindow(): void {
   if (settingsWindow !== undefined && !settingsWindow.isDestroyed()) {
@@ -143,6 +186,7 @@ function startDsh(): void {
   }
 
   logStore.append('shell', `使用 dsh ${choice.version}（${choice.source === 'bundled' ? '内置副本' : '已更新副本'}）`)
+  activeChoice = { version: choice.version, source: choice.source }
   postSplash({ phase: 'starting', message: `正在启动 dsh ${choice.version}…` })
 
   const next = new DshSupervisor({
@@ -174,6 +218,15 @@ ipcMain.handle(IPC.openLogFile, () => shell.openPath(logStore.filePath))
 ipcMain.handle(IPC.settingsRead, () => settingsStore.read())
 ipcMain.handle(IPC.settingsUpdate, (_event, patch: Partial<LauncherSettings>) => settingsStore.update(patch))
 ipcMain.handle(IPC.dshRestart, () => restartFromSplash())
+ipcMain.handle(IPC.logsTail, (_event, count: number) => logStore.tail(count))
+ipcMain.handle(IPC.aboutInfo, (): AboutInfo => ({
+  launcherVersion: app.getVersion(),
+  dshVersion: activeChoice?.version ?? '未知',
+  dshSource: activeChoice?.source ?? 'bundled',
+  electronVersion: process.versions.electron,
+  nodeVersion: process.versions.node,
+  logFile: logStore.filePath,
+}))
 
 void app.whenReady().then(() => {
   // 主窗口承载的是 dsh 的 Web UI，不需要 Electron 的默认菜单栏。
@@ -186,6 +239,8 @@ void app.whenReady().then(() => {
       mainWindow.focus()
     },
     onSettings: () => { openSettingsWindow() },
+    onLogs: () => { openLogsWindow() },
+    onAbout: () => { openAboutWindow() },
     onQuit: () => {
       quitting = true
       app.quit()

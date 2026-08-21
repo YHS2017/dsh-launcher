@@ -1,5 +1,5 @@
 import type { LauncherSettings } from '../main/core/settings-schema.ts'
-import type { SplashPayload } from '../main/ipc/channels.ts'
+import type { AboutInfo, SplashPayload } from '../main/ipc/channels.ts'
 
 /**
  * preload 通过 contextBridge 暴露给全部渲染页面的受限 API。
@@ -13,6 +13,8 @@ export interface LauncherApi {
   readSettings: () => Promise<LauncherSettings>
   updateSettings: (patch: Partial<LauncherSettings>) => Promise<LauncherSettings>
   restartDsh: () => Promise<void>
+  tailLogs: (count: number) => Promise<string[]>
+  aboutInfo: () => Promise<AboutInfo>
 }
 
 declare global {
