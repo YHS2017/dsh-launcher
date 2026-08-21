@@ -3,6 +3,7 @@ import { Menu, Tray, nativeImage } from 'electron'
 export interface TrayCallbacks {
   iconPath: string
   onShow: () => void
+  onSettings: () => void
   onQuit: () => void
 }
 
@@ -12,6 +13,7 @@ export function createTray(callbacks: TrayCallbacks): Tray {
   tray.setToolTip('DSH启动器')
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: '显示主窗口', click: callbacks.onShow },
+    { label: '设置…', click: callbacks.onSettings },
     { type: 'separator' },
     { label: '退出', click: callbacks.onQuit },
   ]))

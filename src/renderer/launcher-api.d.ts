@@ -1,3 +1,4 @@
+import type { LauncherSettings } from '../main/core/settings-schema.ts'
 import type { SplashPayload } from '../main/ipc/channels.ts'
 
 /**
@@ -9,6 +10,9 @@ export interface LauncherApi {
   onSplashState: (callback: (payload: SplashPayload) => void) => void
   retry: () => Promise<void>
   openLogFile: () => Promise<void>
+  readSettings: () => Promise<LauncherSettings>
+  updateSettings: (patch: Partial<LauncherSettings>) => Promise<LauncherSettings>
+  restartDsh: () => Promise<void>
 }
 
 declare global {

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app, BrowserWindow, ipcMain, Menu, shell, type Tray } from 'electron'
 import { resolveRuntime } from './core/runtime-resolver.ts'
+import type { LauncherSettings } from './core/settings-schema.ts'
 import { IPC, type SplashPayload } from './ipc/channels.ts'
 import { resolvePaths, DSH_PACKAGE_SUBPATH } from './paths.ts'
 import { DshSupervisor } from './services/dsh-supervisor.ts'
@@ -86,6 +87,41 @@ function showMainWindow(url: string): void {
   mainWindow = win
 }
 
+let settingsWindow: BrowserWindow | undefined
+
+function openSettingsWindow(): void {
+  if (settingsWindow !== undefined && !settingsWindow.isDestroyed()) {
+    settingsWindow.show()
+    settingsWindow.focus()
+    return
+  }
+  const win = new BrowserWindow({
+    width: 600,
+    height: 620,
+    title: '设置 — DSH启动器',
+    icon: join(paths.resourcesRoot, 'icon.png'),
+    webPreferences: {
+      preload: join(import.meta.dirname, '../preload/index.mjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+  void win.loadFile(join(import.meta.dirname, '../renderer/settings/index.html'))
+  win.on('closed', () => { settingsWindow = undefined })
+  settingsWindow = win
+}
+
+/** 停掉当前 dsh、丢弃主窗口，回到启动页重新走一遍启动流程。 */
+async function restartFromSplash(): Promise<void> {
+  await supervisor?.stop()
+  if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
+    mainWindow.destroy()
+    mainWindow = undefined
+  }
+  splashWindow = createSplashWindow()
+  splashWindow.webContents.once('did-finish-load', () => { startDsh() })
+}
+
 function startDsh(): void {
   const settings = settingsStore.read()
   postSplash({ phase: 'starting', message: '正在准备运行时…' })
@@ -135,6 +171,9 @@ ipcMain.handle(IPC.splashRetry, async () => {
   startDsh()
 })
 ipcMain.handle(IPC.openLogFile, () => shell.openPath(logStore.filePath))
+ipcMain.handle(IPC.settingsRead, () => settingsStore.read())
+ipcMain.handle(IPC.settingsUpdate, (_event, patch: Partial<LauncherSettings>) => settingsStore.update(patch))
+ipcMain.handle(IPC.dshRestart, () => restartFromSplash())
 
 void app.whenReady().then(() => {
   // 主窗口承载的是 dsh 的 Web UI，不需要 Electron 的默认菜单栏。
@@ -146,6 +185,7 @@ void app.whenReady().then(() => {
       mainWindow.show()
       mainWindow.focus()
     },
+    onSettings: () => { openSettingsWindow() },
     onQuit: () => {
       quitting = true
       app.quit()

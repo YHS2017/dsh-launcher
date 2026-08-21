@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>设置 — DSH启动器</title>
+    <link rel="stylesheet" href="../shared.css" />
+  </head>
+  <body>
+    <h1>设置</h1>
+    <p class="muted">模型与 API 密钥请在主窗口的「设置 → 模型」中配置，此处只管启动器自身。</p>
+
+    <section>
+      <h2>启动</h2>
+      <label>
+        <input id="fixed-port-enabled" type="checkbox" />
+        使用固定端口
+      </label>
+      <input id="port" type="number" min="1" max="65535" placeholder="3080" />
+      <p class="muted">默认由操作系统自动分配空闲端口，不会与其他程序冲突。仅在需要稳定地址对接外部工具时才固定端口。</p>
+
+      <label for="dsh-home">数据目录（DSH_HOME）</label><br />
+      <input id="dsh-home" type="text" size="46" placeholder="留空则使用默认的 ~/.dsh" />
+      <p class="muted">留空时沿用上游默认位置，与命令行使用方式共享同一份配置和会话记录。</p>
+    </section>
+
+    <section>
+      <h2>窗口</h2>
+      <label>
+        <input id="close-to-tray" type="checkbox" />
+        关闭窗口时最小化到托盘（后台任务继续运行）
+      </label>
+    </section>
+
+    <section>
+      <h2>隐私</h2>
+      <label>
+        <input id="telemetry-disabled" type="checkbox" />
+        禁用 dsh 遥测
+      </label>
+      <p class="muted">默认保持 DeepSeek Harness 的原有行为，勾选后启动时传入 DSH_TELEMETRY_DISABLED。</p>
+    </section>
+
+    <section>
+      <h2>更新</h2>
+      <label for="channel">更新通道</label>
+      <select id="channel">
+        <option value="latest">稳定版</option>
+        <option value="next">预览版（跟随上游 master）</option>
+      </select>
+    </section>
+
+    <p id="restart-hint" class="muted" hidden>端口或数据目录已修改，需要重启 dsh 才能生效。</p>
+    <div>
+      <button id="restart" type="button">重启 dsh</button>
+      <span id="saved" class="muted" hidden>已保存</span>
+    </div>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

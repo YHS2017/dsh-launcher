@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { LauncherSettings } from '../main/core/settings-schema.ts'
 import { IPC, type SplashPayload } from '../main/ipc/channels.ts'
 
 contextBridge.exposeInMainWorld('launcher', {
@@ -7,4 +8,8 @@ contextBridge.exposeInMainWorld('launcher', {
   },
   retry: (): Promise<void> => ipcRenderer.invoke(IPC.splashRetry),
   openLogFile: (): Promise<void> => ipcRenderer.invoke(IPC.openLogFile),
+  readSettings: (): Promise<LauncherSettings> => ipcRenderer.invoke(IPC.settingsRead),
+  updateSettings: (patch: Partial<LauncherSettings>): Promise<LauncherSettings> =>
+    ipcRenderer.invoke(IPC.settingsUpdate, patch),
+  restartDsh: (): Promise<void> => ipcRenderer.invoke(IPC.dshRestart),
 })

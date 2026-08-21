@@ -3,6 +3,9 @@ export const IPC = {
   splashState: 'splash:state',
   splashRetry: 'splash:retry',
   openLogFile: 'shell:open-log-file',
+  settingsRead: 'settings:read',
+  settingsUpdate: 'settings:update',
+  dshRestart: 'dsh:restart',
 } as const
 
 export interface SplashPayload {

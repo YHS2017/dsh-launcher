@@ -14,6 +14,7 @@ export default defineConfig({
       rollupOptions: {
         input: {
           splash: resolve('src/renderer/splash/index.html'),
+          settings: resolve('src/renderer/settings/index.html'),
         },
       },
     },
