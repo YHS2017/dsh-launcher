@@ -3991,7 +3991,9 @@ release/
 npm run prepare:resources
 ```
 
-预期：`resources/runtime/node/node.exe` 与 `resources/dsh-bundled/node_modules/@deepseek-ai/dsh/lib/bin.js` 均存在。
+**不要把这条命令接到 `| tail` 之类的管道上。** 取 dsh 的那一步以 `stdio: 'inherit'` 调 npm，输出量很大；管道缓冲区写满后 npm 会阻塞在写 stdout 上，表现为「跑了半小时一个包都没落地、也没有任何输出」，很容易误判成网络问题。让它直接输出到终端或日志文件。
+
+预期：`resources/runtime/node/node.exe` 与 `resources/dsh-bundled/node_modules/@deepseek-ai/dsh/lib/bin.js` 均存在。首次执行需数分钟。
 
 ```bash
 npm run pack

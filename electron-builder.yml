@@ -1,0 +1,35 @@
+appId: com.dshlauncher.desktop
+productName: DSH启动器
+copyright: 基于 DeepSeek Harness 构建的非官方桌面客户端
+
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - out/**
+  - package.json
+
+# 内置运行时与 dsh 副本必须放在 asar 之外：
+# node.exe 需要作为真实文件被 spawn，dsh 的依赖树也需要真实的 node_modules 结构。
+extraResources:
+  - from: resources/runtime
+    to: runtime
+  - from: resources/dsh-bundled
+    to: dsh-bundled
+  - from: resources/icon.png
+    to: icon.png
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: resources/icon.png
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: DSH启动器
