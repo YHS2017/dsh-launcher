@@ -55,6 +55,8 @@ DeepSeek Harness（`dsh`）是一个 agent harness，其 Web 形态本质是**�
 | 就绪行实际输出 | `dsh web: http://127.0.0.1:53933`，格式与源码一致 |
 | 冷启动到就绪耗时 | **约 1.8 秒** |
 | SIGTERM 优雅终止 | 正常退出，无残留 |
+| 内置 Node 拉起内置 dsh | 打通。首次约 24 秒（一次性建立 `profiles/node_modules` 符号链接回退目录），之后稳定约 1.8 秒 |
+| 完整 Electron 应用端到端 | 打通。日志记录「使用 dsh 0.1.0-rc.7（内置副本）」与「dsh 就绪：http://127.0.0.1:51789」 |
 | 数据目录 | `~/.dsh` 已由既有使用创建，含 `settings.yaml`、`.credentials.yaml`、`sessions/`、`profiles/`（含 `node_modules` 符号链接回退目录），印证 symlink fallback 机制生效 |
 
 280MB 的体积意味着最终安装包压缩后预计 120–200MB。这是「装完断网即用」的代价，与既定取舍一致。
