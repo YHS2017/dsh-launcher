@@ -25,7 +25,10 @@
     "acceptance": "node scripts/acceptance.mjs \"release/win-unpacked/DSH启动器.exe\"",
     "check:single-instance": "node scripts/check-single-instance.mjs \"release/win-unpacked/DSH启动器.exe\"",
     "check:preload": "node scripts/check-preload.mjs \"release/win-unpacked/DSH启动器.exe\"",
-    "verify:all": "npm run acceptance && npm run check:single-instance && npm run check:preload"
+    "verify:all": "npm run acceptance && npm run check:single-instance && npm run check:preload && npm run check:installer",
+    "check:installer": "node scripts/check-installer.mjs",
+    "pack:dir": "npm run verify:resources && npm run build && electron-builder --win --x64 --dir",
+    "check:artifacts": "node scripts/verify-resources.mjs && node scripts/check-preload.mjs \"release/win-unpacked/DSH启动器.exe\""
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

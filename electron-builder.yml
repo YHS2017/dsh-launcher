@@ -4,7 +4,10 @@ copyright: 基于 DeepSeek Harness 构建的非官方桌面客户端
 
 directories:
   output: release
-  buildResources: resources
+  # 必须是 build（默认值）：nsis.include 与其他构建资源都相对它解析。
+  # 指到 resources 会让 electron-builder 去找 resources/build/installer.nsh，
+  # 找不到就静默跳过——安装包照常生成，只是自定义安装逻辑从未编进去。
+  buildResources: build
 
 files:
   - out/**
@@ -46,4 +49,5 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: DSH启动器
   # 安装后通知 Shell 刷新图标缓存，否则覆盖安装的桌面快捷方式仍显示旧图标。
-  include: build/installer.nsh
+  # 路径相对 directories.buildResources（即 build/）解析。
+  include: installer.nsh
