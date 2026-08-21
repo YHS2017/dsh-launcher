@@ -1,0 +1,198 @@
+/* 启动页独立成一套样式：它是无边框透明窗口，与其余外壳页面的排版前提完全不同。 */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/*
+ * 必须显式压过 display。浏览器给 [hidden] 的默认样式是 display:none，
+ * 但那来自 UA 样式表，任何作者样式里的 display 声明都会盖掉它——
+ * 下面 .failure 的 display:flex 就会让「隐藏」的失败区在加载中照常显示。
+ */
+[hidden] { display: none !important; }
+
+:root {
+  --ink: #f2f5fb;
+  --ink-dim: #9aa6bf;
+  --accent: #4f8cff;
+  --accent-soft: #7aa8ff;
+  --danger: #ff8a8a;
+  --stroke: rgba(255, 255, 255, .09);
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  /* 窗口本身透明，圆角才不会被方形底色切出直角。 */
+  background: transparent;
+  font-family: "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+  color: var(--ink);
+  overflow: hidden;
+  user-select: none;
+  cursor: default;
+}
+
+.card {
+  position: relative;
+  height: 100%;
+  padding: 30px 34px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* 垂直居中：窗口会随状态改高度，居中能让两种状态下留白都均匀。 */
+  justify-content: center;
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background:
+    radial-gradient(120% 90% at 50% -20%, rgba(79, 140, 255, .28) 0%, transparent 60%),
+    linear-gradient(160deg, #17203a 0%, #121829 45%, #0d1220 100%);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .45);
+  /* 无边框窗口没有系统标题栏，整块卡片充当拖动区。 */
+  -webkit-app-region: drag;
+}
+
+/* 可点击元素必须显式退出拖动区，否则点击会被当作拖窗口而失效。 */
+button, pre { -webkit-app-region: no-drag; }
+
+.close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-dim);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.close:hover { background: rgba(255, 255, 255, .1); color: var(--ink); }
+
+.brand { display: flex; flex-direction: column; align-items: center; }
+
+/* 标记：一圈缓慢转动的弧线，内嵌一颗呼吸的核心。 */
+.mark {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 16px;
+}
+.ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: var(--accent-soft);
+  animation: spin 1.5s linear infinite;
+}
+.core {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--accent-soft), var(--accent));
+  box-shadow: 0 0 18px rgba(79, 140, 255, .75);
+  animation: breathe 2.4s ease-in-out infinite;
+}
+
+h1 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: .5px;
+}
+.sub {
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+
+/* 不确定型进度条：无法预知 dsh 何时就绪，用往复滑块表达「在动」而非假装有百分比。 */
+.progress {
+  width: 100%;
+  height: 3px;
+  margin-top: 26px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, .08);
+  overflow: hidden;
+}
+.progress span {
+  display: block;
+  width: 38%;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: slide 1.4s ease-in-out infinite;
+}
+
+.status {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: var(--ink-dim);
+  text-align: center;
+  min-height: 18px;
+}
+
+.failure {
+  width: 100%;
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.failure pre {
+  width: 100%;
+  max-height: 96px;
+  margin: 0 0 14px;
+  padding: 9px 11px;
+  overflow: auto;
+  border: 1px solid rgba(255, 138, 138, .28);
+  border-radius: 8px;
+  background: rgba(255, 138, 138, .07);
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  text-align: left;
+  user-select: text;
+}
+
+.actions { display: flex; gap: 9px; }
+.actions button {
+  padding: 6px 16px;
+  border: 1px solid var(--stroke);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, .05);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.actions button:hover { background: rgba(255, 255, 255, .11); }
+.actions button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.actions button.primary:hover { background: var(--accent-soft); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(.86); opacity: .72; }
+}
+@keyframes slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(365%); }
+}
+
+/* 尊重系统的减弱动效设置：这类装饰性动画对前庭敏感人群可能不适。 */
+@media (prefers-reduced-motion: reduce) {
+  .ring, .core, .progress span { animation: none; }
+  .progress span { width: 100%; background: var(--accent); opacity: .5; }
+}

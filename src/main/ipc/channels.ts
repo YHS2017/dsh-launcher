@@ -11,6 +11,7 @@ export const IPC = {
   updateCheck: 'update:check',
   updateInstall: 'update:install',
   runtimeRollback: 'runtime:rollback',
+  quitApp: 'app:quit',
 } as const
 
 export interface SplashPayload {

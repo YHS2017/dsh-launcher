@@ -19,6 +19,7 @@ export interface LauncherApi {
   checkUpdate: () => Promise<UpdateInfo>
   installUpdate: (version: string) => Promise<void>
   rollbackRuntime: () => Promise<void>
+  quitApp: () => Promise<void>
 }
 
 declare global {

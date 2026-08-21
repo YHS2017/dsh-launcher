@@ -44,23 +44,46 @@ function readDshVersion(dshRoot: string): string | undefined {
   }
 }
 
+/** 启动页两种状态的窗口高度：失败时要额外容纳错误详情与按钮。 */
+const SPLASH_WIDTH = 460
+const SPLASH_HEIGHT = 268
+const SPLASH_HEIGHT_FAILED = 430
+
 function postSplash(payload: SplashPayload): void {
-  splashWindow?.webContents.send(IPC.splashState, payload)
+  const win = splashWindow
+  if (win === undefined || win.isDestroyed()) return
+  win.webContents.send(IPC.splashState, payload)
+  // 高度跟着状态走，避免加载态下方空出一大片、失败态又挤不下详情。
+  const height = payload.phase === 'failed' ? SPLASH_HEIGHT_FAILED : SPLASH_HEIGHT
+  if (win.getBounds().height === height) return
+  win.setSize(SPLASH_WIDTH, height)
+  win.center()
 }
 
 function createSplashWindow(): BrowserWindow {
   const win = new BrowserWindow({
-    width: 560,
-    height: 380,
+    width: SPLASH_WIDTH,
+    height: SPLASH_HEIGHT,
     resizable: false,
+    // 无边框 + 透明：圆角卡片才不会被方形窗口底色切出直角。
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    // 启动阶段窗口会被反复创建（重试、更新后重启），居中且不进任务栏更少干扰。
+    center: true,
+    skipTaskbar: true,
+    show: false,
     title: 'DSH启动器',
+    icon: join(paths.resourcesRoot, 'icon.png'),
     webPreferences: {
-      preload: join(import.meta.dirname, '../preload/index.mjs'),
+      preload: join(import.meta.dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   })
   void win.loadFile(join(import.meta.dirname, '../renderer/splash/index.html'))
+  // 等首帧就绪再显示，避免透明窗口先闪一下白底。
+  win.once('ready-to-show', () => { win.show() })
   return win
 }
 
@@ -118,7 +141,7 @@ function openShellWindow(
     title: options.title,
     icon: join(paths.resourcesRoot, 'icon.png'),
     webPreferences: {
-      preload: join(import.meta.dirname, '../preload/index.mjs'),
+      preload: join(import.meta.dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -152,7 +175,7 @@ function openSettingsWindow(): void {
     title: '设置 — DSH启动器',
     icon: join(paths.resourcesRoot, 'icon.png'),
     webPreferences: {
-      preload: join(import.meta.dirname, '../preload/index.mjs'),
+      preload: join(import.meta.dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -223,6 +246,11 @@ ipcMain.handle(IPC.splashRetry, async () => {
   startDsh()
 })
 ipcMain.handle(IPC.openLogFile, () => shell.openPath(logStore.filePath))
+// 启动页是无边框窗口，没有系统关闭按钮，退出通道得由它自己提供。
+ipcMain.handle(IPC.quitApp, () => {
+  quitting = true
+  app.quit()
+})
 ipcMain.handle(IPC.settingsRead, () => settingsStore.read())
 ipcMain.handle(IPC.settingsUpdate, (_event, patch: Partial<LauncherSettings>) => settingsStore.update(patch))
 ipcMain.handle(IPC.dshRestart, () => restartFromSplash())
@@ -256,27 +284,47 @@ ipcMain.handle(IPC.aboutInfo, (): AboutInfo => ({
   logFile: logStore.filePath,
 }))
 
-void app.whenReady().then(() => {
-  // 主窗口承载的是 dsh 的 Web UI，不需要 Electron 的默认菜单栏。
-  Menu.setApplicationMenu(null)
-  tray = createTray({
-    iconPath: join(paths.resourcesRoot, 'icon.png'),
-    onShow: () => {
-      if (mainWindow === undefined || mainWindow.isDestroyed()) return
-      mainWindow.show()
-      mainWindow.focus()
-    },
-    onSettings: () => { openSettingsWindow() },
-    onLogs: () => { openLogsWindow() },
-    onAbout: () => { openAboutWindow() },
-    onQuit: () => {
-      quitting = true
-      app.quit()
-    },
+/**
+ * 把已在运行的那个实例带到前台。
+ *
+ * 主窗口可能被关到托盘里（closeToTray 默认开启），所以要先 show 再 focus；
+ * 若它被最小化了，restore 也不能少。启动尚未完成时主窗口还不存在，
+ * 这时聚焦启动页——用户至少能看到当前进度，而不是毫无反应。
+ */
+function focusExistingInstance(): void {
+  const target = mainWindow !== undefined && !mainWindow.isDestroyed() ? mainWindow : splashWindow
+  if (target === undefined || target.isDestroyed()) return
+  if (target.isMinimized()) target.restore()
+  target.show()
+  target.focus()
+}
+
+// 单实例锁：第二次启动不再走一遍启动流程，而是把已有窗口唤到前台。
+// 取锁必须早于 whenReady，且抢不到锁时整套启动逻辑都不能注册——
+// app.quit() 是异步的，若把 whenReady 留在锁外，第二个实例会先建出
+// 启动页窗口再退出，用户看到的是窗口一闪。
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+} else {
+  app.on('second-instance', () => { focusExistingInstance() })
+  void app.whenReady().then(() => {
+    // 主窗口承载的是 dsh 的 Web UI，不需要 Electron 的默认菜单栏。
+    Menu.setApplicationMenu(null)
+    tray = createTray({
+      iconPath: join(paths.resourcesRoot, 'icon.png'),
+      onShow: () => { focusExistingInstance() },
+      onSettings: () => { openSettingsWindow() },
+      onLogs: () => { openLogsWindow() },
+      onAbout: () => { openAboutWindow() },
+      onQuit: () => {
+        quitting = true
+        app.quit()
+      },
+    })
+    splashWindow = createSplashWindow()
+    splashWindow.webContents.once('did-finish-load', () => { startDsh() })
   })
-  splashWindow = createSplashWindow()
-  splashWindow.webContents.once('did-finish-load', () => { startDsh() })
-})
+}
 
 // 托盘驻留模式下，窗口全关不等于退出——退出只由托盘菜单发起。
 app.on('window-all-closed', () => {

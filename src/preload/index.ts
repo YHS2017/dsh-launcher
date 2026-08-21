@@ -18,4 +18,5 @@ contextBridge.exposeInMainWorld('launcher', {
   checkUpdate: (): Promise<UpdateInfo> => ipcRenderer.invoke(IPC.updateCheck),
   installUpdate: (version: string): Promise<void> => ipcRenderer.invoke(IPC.updateInstall, version),
   rollbackRuntime: (): Promise<void> => ipcRenderer.invoke(IPC.runtimeRollback),
+  quitApp: (): Promise<void> => ipcRenderer.invoke(IPC.quitApp),
 })

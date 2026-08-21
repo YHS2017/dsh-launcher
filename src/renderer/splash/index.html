@@ -3,17 +3,34 @@
   <head>
     <meta charset="utf-8" />
     <title>DSH启动器</title>
-    <link rel="stylesheet" href="../shared.css" />
+    <link rel="stylesheet" href="./splash.css" />
   </head>
   <body>
-    <h1>DSH启动器</h1>
-    <p class="muted">基于 DeepSeek Harness 构建的非官方桌面客户端</p>
-    <p id="status">正在准备…</p>
-    <pre id="detail" class="detail" hidden></pre>
-    <div id="actions" hidden>
-      <button id="retry" class="primary" type="button">重试</button>
-      <button id="open-log" type="button">打开日志</button>
-    </div>
+    <!-- 整块卡片可拖动：无边框窗口没有系统标题栏，不给拖动区就挪不动窗口。 -->
+    <main class="card" id="card">
+      <button id="close" class="close" type="button" title="退出" aria-label="退出">✕</button>
+
+      <div class="brand">
+        <div class="mark" aria-hidden="true">
+          <span class="ring"></span>
+          <span class="core"></span>
+        </div>
+        <h1>DSH启动器</h1>
+        <p class="sub">DeepSeek Harness 桌面客户端</p>
+      </div>
+
+      <div class="progress" id="progress" aria-hidden="true"><span></span></div>
+
+      <p class="status" id="status">正在准备…</p>
+
+      <section class="failure" id="failure" hidden>
+        <pre id="detail"></pre>
+        <div class="actions">
+          <button id="retry" class="primary" type="button">重试</button>
+          <button id="open-log" type="button">打开日志</button>
+        </div>
+      </section>
+    </main>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

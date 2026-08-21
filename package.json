@@ -22,7 +22,8 @@
     "pack": "npm run verify:resources && npm run build && electron-builder --win --x64",
     "make:icon": "node scripts/make-icon.mjs resources/icon.png",
     "verify:resources": "node scripts/verify-resources.mjs",
-    "acceptance": "node scripts/acceptance.mjs \"release/win-unpacked/DSH启动器.exe\""
+    "acceptance": "node scripts/acceptance.mjs \"release/win-unpacked/DSH启动器.exe\"",
+    "check:single-instance": "node scripts/check-single-instance.mjs \"release/win-unpacked/DSH启动器.exe\""
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
