@@ -4000,6 +4000,8 @@ npm run prepare:resources
 
 **不要把这条命令接到 `| tail` 之类的管道上。** 取 dsh 的那一步以 `stdio: 'inherit'` 调 npm，输出量很大；管道缓冲区写满后 npm 会阻塞在写 stdout 上，表现为「跑了半小时一个包都没落地、也没有任何输出」，很容易误判成网络问题。让它直接输出到终端或日志文件。
 
+**同一条禁忌适用于 `npm run pack`。** electron-builder 会逐个给依赖树里的原生二进制（node-pty、ripgrep 等）签名并各打一行日志，输出量同样很大，接管道会在复制到一半时静默卡死。
+
 预期：`resources/runtime/node/node.exe` 与 `resources/dsh-bundled/node_modules/@deepseek-ai/dsh/lib/bin.js` 均存在。首次执行需数分钟。
 
 **判断完成只看命令是否退出，不要轮询文件是否存在。** npm 在安装过程中会先落盘再重排目录，`bin.js` 会短暂出现又被移走；用 `until [ -f ... ]` 之类的循环等待会命中这个中间态，得出「已完成」的错误结论，随后启动就会报 MODULE_NOT_FOUND。脚本自身在结尾已做入口校验，命令正常退出即代表装好。
