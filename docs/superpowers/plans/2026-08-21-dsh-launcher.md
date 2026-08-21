@@ -6,7 +6,7 @@
 
 **Architecture:** Electron 主进程作为外壳，用内置的官方 Node 运行时以子进程方式拉起 `dsh --profile web`，读取其 stdout 上的就绪行取得实际端口，再用 BrowserWindow 加载该地址。外壳完全不介入 dsh 的 Web UI，只负责进程监督、设置、日志与更新编排。
 
-**Tech Stack:** Electron 43.4.1 · electron-vite 5.0.0 · electron-builder 26.15.3 · TypeScript 7.0.2 · Vitest 4.1.11 · 内置 Node v24.14.1
+**Tech Stack:** Electron 43.4.1 · electron-vite 5.0.0 · electron-builder 26.15.3 · TypeScript 5.9.3 · Vitest 4.1.11 · 内置 Node v24.14.1
 
 ## Global Constraints
 
@@ -22,6 +22,7 @@
 - 外壳界面语言为简体中文。
 - 主进程业务依赖保持为零：设置校验等逻辑手写，不引入 zod 等运行时库（Electron 与构建工具除外）。
 - `src/main/core/` 下的模块**禁止** import `electron`，须为可直接单测的纯逻辑。
+- TypeScript 钉在 **5.9.3**，不要升到 7.x。实测 7.0.2（Go 实现）在本机把 `node_modules` 下所有 `.d.ts` 误判为二进制文件（`TS1490`），typecheck 全线报错却对源码零覆盖——它不是更严格，而是根本没检查到源码，会掩盖真实的类型缺陷。
 - 测试中出现 Windows 路径时一律用 `String.raw` 模板串书写。普通字符串里的单反斜杠会被 JS 当作转义（`'C:\data'` 实际等于 `'C:data'`），断言两边同时出错时测试还会照样通过，属于会掩盖真实缺陷的写法。
 
 ## 文件结构
@@ -154,7 +155,7 @@ npx vitest run
     "electron": "43.4.1",
     "electron-builder": "26.15.3",
     "electron-vite": "5.0.0",
-    "typescript": "7.0.2",
+    "typescript": "5.9.3",
     "vite": "^7.0.0",
     "vitest": "4.1.11"
   }
@@ -177,6 +178,7 @@ npx vitest run
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
     "noEmit": true,
     "types": ["node"]
   },
@@ -1651,11 +1653,15 @@ export async function probeUntilReady(url: string, opts: ProbeOptions): Promise<
 创建 `src/main/services/dsh-supervisor.ts`：
 
 ```typescript
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { spawn, type ChildProcessByStdio } from 'node:child_process'
+import type { Readable } from 'node:stream'
 import { EventEmitter } from 'node:events'
 import { backoffDelay, MAX_RESTART_ATTEMPTS } from '../core/backoff.ts'
 import { parseReadyLine } from '../core/url-line-parser.ts'
 import { probeUntilReady } from './readiness-probe.ts'
+
+/** 本监督器固定以 stdio: ['ignore','pipe','pipe'] 启动，故 stdin 为 null、两个输出流可读。 */
+type DshChild = ChildProcessByStdio<null, Readable, Readable>
 
 export type SupervisorState = 'idle' | 'starting' | 'ready' | 'stopping' | 'crashed'
 
@@ -1688,7 +1694,7 @@ const STOP_GRACE_MS = 5000
  */
 export class DshSupervisor extends EventEmitter {
   readonly #opts: DshSupervisorOptions
-  #child: ChildProcessWithoutNullStreams | undefined
+  #child: DshChild | undefined
   #state: SupervisorState = 'idle'
   #url: string | undefined
   #stdoutBuffer = ''
@@ -1745,11 +1751,11 @@ export class DshSupervisor extends EventEmitter {
     this.#stdoutBuffer = ''
     this.#setState('starting')
 
-    const child = spawn(this.#opts.nodeExe, this.#buildArgs(), {
+    const child: DshChild = spawn(this.#opts.nodeExe, this.#buildArgs(), {
       env: this.#buildEnv(),
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
-    }) as ChildProcessWithoutNullStreams
+    })
     this.#child = child
 
     child.stdout.setEncoding('utf8')
@@ -1938,7 +1944,7 @@ git commit -m "feat: dsh 子进程监督状态机与就绪兜底探测"
 // 保留 npm：更新 dsh 需要安装一棵约 195 个包的依赖树，
 // 自行实现依赖解析不现实，交给 npm 最稳妥。
 import { execFileSync } from 'node:child_process'
-import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync } from 'node:fs'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { fileURLToPath } from 'node:url'
@@ -1968,12 +1974,18 @@ if (!response.ok || response.body === null) {
 await pipeline(Readable.fromWeb(response.body), createWriteStream(zipPath))
 
 console.log('正在解包…')
-// Windows 自带 tar 支持 zip，避免额外依赖。
-execFileSync('tar', ['-xf', zipPath, '-C', tmpDir], { stdio: 'inherit' })
+// 必须用 Windows 自带的 bsdtar，不能依赖 PATH 里的 tar：
+// 在 Git Bash 等 MSYS 环境下 PATH 命中的是 GNU tar，它会把 `E:\...` 的
+// 盘符当成 `host:path` 里的远程主机名，报 "Cannot connect to E"。
+const systemTar = process.env.SystemRoot === undefined
+  ? 'tar'
+  : join(process.env.SystemRoot, 'System32', 'tar.exe')
+const tarCmd = existsSync(systemTar) ? systemTar : 'tar'
+execFileSync(tarCmd, ['-xf', zipPath, '-C', tmpDir], { stdio: 'inherit' })
 
 mkdirSync(dirname(target), { recursive: true })
 rmSync(target, { recursive: true, force: true })
-execFileSync('cmd', ['/c', 'move', join(tmpDir, name), target], { stdio: 'inherit' })
+renameSync(join(tmpDir, name), target)
 rmSync(tmpDir, { recursive: true, force: true })
 
 if (!existsSync(join(target, 'node.exe'))) {
@@ -2179,8 +2191,9 @@ function startDsh(): void {
   next.start()
 }
 
-ipcMain.handle(IPC.splashRetry, () => {
-  void supervisor?.stop().then(() => { startDsh() }) ?? startDsh()
+ipcMain.handle(IPC.splashRetry, async () => {
+  await supervisor?.stop()
+  startDsh()
 })
 ipcMain.handle(IPC.openLogFile, () => shell.openPath(logStore.filePath))
 
@@ -2324,12 +2337,13 @@ declare global {
 创建 `src/renderer/splash/main.ts`：
 
 ```typescript
-const status = document.querySelector<HTMLParagraphElement>('#status')
+// 不能叫 status：DOM 全局已有 window.status，块级同名声明会与之冲突。
+const statusEl = document.querySelector<HTMLParagraphElement>('#status')
 const detail = document.querySelector<HTMLPreElement>('#detail')
 const actions = document.querySelector<HTMLDivElement>('#actions')
 
 window.launcher.onSplashState(payload => {
-  if (status !== null) status.textContent = payload.message
+  if (statusEl !== null) statusEl.textContent = payload.message
   const failed = payload.phase === 'failed'
   if (detail !== null) {
     detail.hidden = !failed || payload.detail === undefined

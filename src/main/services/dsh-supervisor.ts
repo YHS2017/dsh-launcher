@@ -1,8 +1,12 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { spawn, type ChildProcessByStdio } from 'node:child_process'
+import type { Readable } from 'node:stream'
 import { EventEmitter } from 'node:events'
 import { backoffDelay, MAX_RESTART_ATTEMPTS } from '../core/backoff.ts'
 import { parseReadyLine } from '../core/url-line-parser.ts'
 import { probeUntilReady } from './readiness-probe.ts'
+
+/** 本监督器固定以 stdio: ['ignore','pipe','pipe'] 启动，故 stdin 为 null、两个输出流可读。 */
+type DshChild = ChildProcessByStdio<null, Readable, Readable>
 
 export type SupervisorState = 'idle' | 'starting' | 'ready' | 'stopping' | 'crashed'
 
@@ -35,7 +39,7 @@ const STOP_GRACE_MS = 5000
  */
 export class DshSupervisor extends EventEmitter {
   readonly #opts: DshSupervisorOptions
-  #child: ChildProcessWithoutNullStreams | undefined
+  #child: DshChild | undefined
   #state: SupervisorState = 'idle'
   #url: string | undefined
   #stdoutBuffer = ''
@@ -92,11 +96,11 @@ export class DshSupervisor extends EventEmitter {
     this.#stdoutBuffer = ''
     this.#setState('starting')
 
-    const child = spawn(this.#opts.nodeExe, this.#buildArgs(), {
+    const child: DshChild = spawn(this.#opts.nodeExe, this.#buildArgs(), {
       env: this.#buildEnv(),
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
-    }) as ChildProcessWithoutNullStreams
+    })
     this.#child = child
 
     child.stdout.setEncoding('utf8')
