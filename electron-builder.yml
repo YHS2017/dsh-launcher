@@ -37,6 +37,14 @@ win:
   target:
     - target: nsis
       arch: [x64]
+  # 只处理主 exe，跳过内置资源里的第三方原生二进制。
+  # dsh 依赖树里带着 node-pty 的 OpenConsole.exe、ripgrep 的 rg.exe 等一批
+  # exe/dll，electron-builder 默认会逐个对它们做签名/资源编辑——这对第三方
+  # 二进制毫无意义，却极慢，实测会让打包卡死在这一步（CPU 归零、不再有输出、
+  # 也不报错）。主 exe 仍需处理，图标与版本信息靠它嵌入。
+  signIgnore:
+    - 'resources[\\/]dsh-bundled[\\/].*'
+    - 'resources[\\/]runtime[\\/].*'
   # 直接给 ICO：里面备了 16~256 各号原生尺寸，任务栏、桌面、文件列表各取所需，
   # 不必由 electron-builder 从单张 PNG 现转——那样小尺寸会被缩放出锯齿。
   icon: resources/icon.ico
