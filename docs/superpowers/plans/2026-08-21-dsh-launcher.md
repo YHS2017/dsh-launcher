@@ -1736,7 +1736,10 @@ export class DshSupervisor extends EventEmitter {
   }
 
   start(): void {
-    if (this.#state === 'starting' || this.#state === 'ready') return
+    // 守卫的判据是「是否已有活跃子进程」，不能用状态判断：
+    // 崩溃后等待重启期间状态同样是 starting，但此时并无子进程，
+    // 用状态判断会让退避计时器到点后原地返回，重启永远不发生。
+    if (this.#child !== undefined) return
     this.#stopping = false
     this.#url = undefined
     this.#stdoutBuffer = ''
