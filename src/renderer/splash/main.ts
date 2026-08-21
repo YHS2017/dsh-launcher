@@ -1,3 +1,10 @@
+import { whaleSvg } from './whale.ts'
+
+const whale = document.querySelector<SVGSVGElement>('#whale')
+// 深色卡片上不套白色圆盘：渐变鲸鱼直接浮在背景上更轻盈，
+// 圆盘留给托盘与任务栏图标——那些场合底色不可控，需要它来保证对比。
+if (whale !== null) whale.innerHTML = whaleSvg({ idPrefix: 'splash', disc: false })
+
 // 不能叫 status：DOM 全局已有 window.status，块级同名声明会与之冲突。
 const statusEl = document.querySelector<HTMLParagraphElement>('#status')
 const detail = document.querySelector<HTMLPreElement>('#detail')
