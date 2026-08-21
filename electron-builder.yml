@@ -12,11 +12,16 @@ files:
 
 # 内置运行时与 dsh 副本必须放在 asar 之外：
 # node.exe 需要作为真实文件被 spawn，dsh 的依赖树也需要真实的 node_modules 结构。
+# filter 必须显式写成 **/* ：electron-builder 的默认过滤规则会把
+# extraResources 里的 node_modules 整个丢掉，产出一个只含 package.json 的
+# 空壳目录，安装包能打出来但启动即报「内置 dsh 副本不可用」。
 extraResources:
   - from: resources/runtime
     to: runtime
-  - from: resources/dsh-bundled
-    to: dsh-bundled
+    filter: ['**/*']
+  - from: resources/dsh-bundled/node_modules
+    to: dsh-bundled/node_modules
+    filter: ['**/*']
   - from: resources/icon.png
     to: icon.png
 

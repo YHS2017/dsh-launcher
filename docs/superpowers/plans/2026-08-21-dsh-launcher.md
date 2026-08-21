@@ -3877,11 +3877,18 @@ files:
 
 # 内置运行时与 dsh 副本必须放在 asar 之外：
 # node.exe 需要作为真实文件被 spawn，dsh 的依赖树也需要真实的 node_modules 结构。
+#
+# dsh 这一条的 from 必须**直指 node_modules 本身**，不能写成父目录 resources/dsh-bundled。
+# electron-builder 会丢弃直接位于 from 根下的 node_modules，产出的 dsh-bundled 是个空目录，
+# 而打包过程零报错、零警告——安装包照常生成，只是装完一启动就报「内置 dsh 副本不可用」。
+# 对照：runtime 那条能带上 node_modules，是因为它嵌在 runtime/node/ 第二层而非根下。
 extraResources:
   - from: resources/runtime
     to: runtime
-  - from: resources/dsh-bundled
-    to: dsh-bundled
+    filter: ['**/*']
+  - from: resources/dsh-bundled/node_modules
+    to: dsh-bundled/node_modules
+    filter: ['**/*']
   - from: resources/icon.png
     to: icon.png
 
@@ -4010,6 +4017,14 @@ npm run verify:resources
 ```bash
 npm run pack
 ```
+
+打包结束后**必须核查 dsh 副本真的进了产物**——这一步失败时打包不会报错：
+
+```bash
+node -e "const{existsSync,readdirSync}=require('node:fs');const b='release/win-unpacked/resources/dsh-bundled/node_modules/@deepseek-ai';console.log(existsSync(b+'/dsh/lib/bin.js')?'✓ dsh 已打入，'+readdirSync(b).length+' 个包':'✗ dsh 缺失，检查 extraResources 的 from 是否直指 node_modules')"
+```
+
+预期：输出「✓ dsh 已打入，195 个包」。
 
 预期：`release/` 下生成 `DSH启动器 Setup 0.1.0.exe`。`pack` 已把资源自检设为前置步骤。
 首次打包需要下载 electron-builder 的 winCodeSign 与 nsis 二进制，国内网络下须先设好镜像：
