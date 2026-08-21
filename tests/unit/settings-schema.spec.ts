@@ -27,7 +27,7 @@ describe('parseSettings', () => {
   it('保留合法字段', () => {
     const parsed = parseSettings({
       port: 3080,
-      dshHome: 'D:\dsh',
+      dshHome: String.raw`D:\dsh`,
       closeToTray: false,
       telemetryDisabled: true,
       updateChannel: 'next',
@@ -35,7 +35,7 @@ describe('parseSettings', () => {
     })
     expect(parsed).toEqual({
       port: 3080,
-      dshHome: 'D:\dsh',
+      dshHome: String.raw`D:\dsh`,
       closeToTray: false,
       telemetryDisabled: true,
       updateChannel: 'next',

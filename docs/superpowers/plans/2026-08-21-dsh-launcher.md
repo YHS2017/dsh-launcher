@@ -22,6 +22,7 @@
 - 外壳界面语言为简体中文。
 - 主进程业务依赖保持为零：设置校验等逻辑手写，不引入 zod 等运行时库（Electron 与构建工具除外）。
 - `src/main/core/` 下的模块**禁止** import `electron`，须为可直接单测的纯逻辑。
+- 测试中出现 Windows 路径时一律用 `String.raw` 模板串书写。普通字符串里的单反斜杠会被 JS 当作转义（`'C:\data'` 实际等于 `'C:data'`），断言两边同时出错时测试还会照样通过，属于会掩盖真实缺陷的写法。
 
 ## 文件结构
 
@@ -387,7 +388,7 @@ describe('parseSettings', () => {
   it('保留合法字段', () => {
     const parsed = parseSettings({
       port: 3080,
-      dshHome: 'D:\\dsh',
+      dshHome: String.raw`D:\dsh`,
       closeToTray: false,
       telemetryDisabled: true,
       updateChannel: 'next',
@@ -395,7 +396,7 @@ describe('parseSettings', () => {
     })
     expect(parsed).toEqual({
       port: 3080,
-      dshHome: 'D:\\dsh',
+      dshHome: String.raw`D:\dsh`,
       closeToTray: false,
       telemetryDisabled: true,
       updateChannel: 'next',
@@ -864,25 +865,33 @@ git commit -m "feat: semver 比较（含 rc 预发布）与崩溃重启退避策
 import { describe, expect, it } from 'vitest'
 import { resolvePaths } from '../../src/main/paths.ts'
 
+// 用 String.raw 写 Windows 路径，避免反斜杠被当成字符串转义。
+const USER_DATA = String.raw`C:\data`
+const RESOURCES = String.raw`C:\app\resources`
+
 describe('resolvePaths', () => {
-  const paths = resolvePaths({ userData: 'C:\\data', resources: 'C:\\app\\resources' })
+  const paths = resolvePaths({ userData: USER_DATA, resources: RESOURCES })
 
   it('设置文件位于用户数据目录下', () => {
-    expect(paths.settingsFile).toBe('C:\\data\\config.json')
+    expect(paths.settingsFile).toBe(String.raw`C:\data\config.json`)
   })
 
   it('日志与运行时目录位于用户数据目录下', () => {
-    expect(paths.logsDir).toBe('C:\\data\\logs')
-    expect(paths.runtimesDir).toBe('C:\\data\\dsh-runtime')
+    expect(paths.logsDir).toBe(String.raw`C:\data\logs`)
+    expect(paths.runtimesDir).toBe(String.raw`C:\data\dsh-runtime`)
   })
 
   it('内置 dsh 副本指向 npm 安装后的包根目录', () => {
-    expect(paths.bundledDshRoot).toBe('C:\\app\\resources\\dsh-bundled\\node_modules\\@deepseek-ai\\dsh')
+    expect(paths.bundledDshRoot).toBe(String.raw`C:\app\resources\dsh-bundled\node_modules\@deepseek-ai\dsh`)
   })
 
   it('内置 Node 与 npm 入口位于 resources/runtime/node 下', () => {
-    expect(paths.nodeExe).toBe('C:\\app\\resources\\runtime\\node\\node.exe')
-    expect(paths.npmCli).toBe('C:\\app\\resources\\runtime\\node\\node_modules\\npm\\bin\\npm-cli.js')
+    expect(paths.nodeExe).toBe(String.raw`C:\app\resources\runtime\node\node.exe`)
+    expect(paths.npmCli).toBe(String.raw`C:\app\resources\runtime\node\node_modules\npm\bin\npm-cli.js`)
+  })
+
+  it('暴露资源根目录', () => {
+    expect(paths.resourcesRoot).toBe(RESOURCES)
   })
 })
 ```
@@ -893,8 +902,9 @@ describe('resolvePaths', () => {
 import { describe, expect, it } from 'vitest'
 import { resolveRuntime } from '../../src/main/core/runtime-resolver.ts'
 
-const BUNDLED = 'C:\\app\\resources\\dsh-bundled\\node_modules\\@deepseek-ai\\dsh'
-const UPDATED = 'C:\\data\\dsh-runtime\\dsh-0.1.0-rc.8\\node_modules\\@deepseek-ai\\dsh'
+// 用 String.raw 写 Windows 路径，避免反斜杠被当成字符串转义。
+const BUNDLED = String.raw`C:\app\resources\dsh-bundled\node_modules\@deepseek-ai\dsh`
+const UPDATED = String.raw`C:\data\dsh-runtime\dsh-0.1.0-rc.8\node_modules\@deepseek-ai\dsh`
 
 describe('resolveRuntime', () => {
   it('没有更新副本时使用内置副本', () => {
@@ -945,7 +955,7 @@ describe('resolveRuntime', () => {
       updatedDshRoot: null,
       readVersion: () => '0.1.0-rc.7',
     })
-    expect(choice.dshBin).toBe(`${BUNDLED}\\lib\\bin.js`)
+    expect(choice.dshBin).toBe(String.raw`${BUNDLED}\lib\bin.js`)
   })
 
   it('内置副本也读不到版本时抛错——这是安装损坏，不能静默吞掉', () => {
