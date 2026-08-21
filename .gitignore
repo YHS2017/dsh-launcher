@@ -9,3 +9,4 @@ Thumbs.db
 # 内置运行时与 dsh 副本由构建脚本生成，不入库
 resources/runtime/
 resources/dsh-bundled/
+out/

@@ -227,11 +227,28 @@ export default defineConfig({
 })
 ```
 
-- [ ] **Step 5: 安装依赖并运行测试**
+- [ ] **Step 5: 配置二进制镜像，安装依赖并运行测试**
+
+Electron 与 electron-builder 的二进制不走 npm registry，默认从 GitHub 下载，在国内网络下会长时间卡死而非快速失败。**先**创建 `.npmrc`：
+
+```
+# Electron 与 electron-builder 的二进制默认从 GitHub 下载，国内常年不可达。
+# 指向 npmmirror 的二进制镜像，避免安装卡死。
+electron_mirror=https://registry.npmmirror.com/-/binary/electron/
+electron_builder_binaries_mirror=https://registry.npmmirror.com/-/binary/electron-builder-binaries/
+```
 
 ```bash
 npm install
 ```
+
+装完确认二进制真的落地了——`npm install` 即使二进制下载失败也可能以 0 退出：
+
+```bash
+node -e "console.log(require('node:fs').existsSync('node_modules/electron/dist/electron.exe')?'✓ electron 二进制就位':'✗ 二进制缺失，检查 .npmrc 镜像配置')"
+```
+
+预期：输出「✓ electron 二进制就位」。若缺失，配好 `.npmrc` 后执行 `node node_modules/electron/install.js` 补下。
 
 ```bash
 npm test
@@ -254,7 +271,7 @@ function createSplash(): BrowserWindow {
     resizable: false,
     title: 'DSH启动器',
     webPreferences: {
-      preload: join(import.meta.dirname, '../preload/index.js'),
+      preload: join(import.meta.dirname, '../preload/index.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -304,7 +321,7 @@ contextBridge.exposeInMainWorld('launcher', {
 npm run build
 ```
 
-预期：`out/main/index.js`、`out/preload/index.js`、`out/renderer/` 均生成，无报错。
+预期：`out/main/index.js`、`out/preload/index.mjs`（ESM 项目下 electron-vite 输出 .mjs，Electron 的 ESM preload 也要求该扩展名）、`out/renderer/` 均生成，无报错。
 
 ```bash
 npm run dev
@@ -2066,7 +2083,7 @@ function createSplashWindow(): BrowserWindow {
     resizable: false,
     title: 'DSH启动器',
     webPreferences: {
-      preload: join(import.meta.dirname, '../preload/index.js'),
+      preload: join(import.meta.dirname, '../preload/index.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -2685,7 +2702,7 @@ function openSettingsWindow(): void {
     height: 560,
     title: '设置 — DSH启动器',
     webPreferences: {
-      preload: join(import.meta.dirname, '../preload/index.js'),
+      preload: join(import.meta.dirname, '../preload/index.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -3040,7 +3057,7 @@ function openShellWindow(
     height: options.height,
     title: options.title,
     webPreferences: {
-      preload: join(import.meta.dirname, '../preload/index.js'),
+      preload: join(import.meta.dirname, '../preload/index.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -3911,10 +3928,12 @@ SOFTWARE.
 ## 开发
 
 ```sh
-npm install
+npm install                 # 国内网络请先确认 .npmrc 中的二进制镜像配置
 npm run prepare:resources   # 下载内置 Node 与 dsh，首次需要数分钟
 npm run dev
 ```
+
+仓库内的 `.npmrc` 把 Electron 与 electron-builder 的二进制指向了 npmmirror 镜像。缺少这项配置时，二进制会去 GitHub 下载并在国内网络下长时间卡死。
 
 打包安装程序：
 

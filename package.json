@@ -1,0 +1,33 @@
+{
+  "name": "dsh-launcher",
+  "version": "0.1.0",
+  "description": "基于 DeepSeek Harness 构建的非官方桌面客户端",
+  "main": "out/main/index.js",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "dshLauncher": {
+    "nodeVersion": "24.14.1",
+    "dshVersion": "0.1.0-rc.7"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "fetch:node": "node scripts/fetch-node-runtime.mjs",
+    "fetch:dsh": "node scripts/fetch-dsh-bundle.mjs",
+    "prepare:resources": "npm run fetch:node && npm run fetch:dsh",
+    "pack": "npm run build && electron-builder --win --x64"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "electron": "43.4.1",
+    "electron-builder": "26.15.3",
+    "electron-vite": "5.0.0",
+    "typescript": "7.0.2",
+    "vite": "^7.0.0",
+    "vitest": "4.1.11"
+  }
+}
