@@ -3995,11 +3995,28 @@ npm run prepare:resources
 
 预期：`resources/runtime/node/node.exe` 与 `resources/dsh-bundled/node_modules/@deepseek-ai/dsh/lib/bin.js` 均存在。首次执行需数分钟。
 
+**判断完成只看命令是否退出，不要轮询文件是否存在。** npm 在安装过程中会先落盘再重排目录，`bin.js` 会短暂出现又被移走；用 `until [ -f ... ]` 之类的循环等待会命中这个中间态，得出「已完成」的错误结论，随后启动就会报 MODULE_NOT_FOUND。脚本自身在结尾已做入口校验，命令正常退出即代表装好。
+
+先跑资源自检。它不只看文件存不存在，还会真正执行一次内置 Node 与内置 dsh 的版本查询——
+`dsh --version` 会走完整的依赖解析，能验出依赖树是否真的完整，而单纯的文件存在性检查会被
+npm 安装中途的目录重排骗过去：
+
+```bash
+npm run verify:resources
+```
+
+预期：四项全为 ✓，末尾输出「资源自检通过，可以打包」。
+
 ```bash
 npm run pack
 ```
 
-预期：`release/` 下生成 `DSH启动器 Setup 0.1.0.exe`。首次打包需要下载 Electron 二进制，耗时较长。
+预期：`release/` 下生成 `DSH启动器 Setup 0.1.0.exe`。`pack` 已把资源自检设为前置步骤。
+首次打包需要下载 electron-builder 的 winCodeSign 与 nsis 二进制，国内网络下须先设好镜像：
+
+```bash
+ELECTRON_BUILDER_BINARIES_MIRROR=https://registry.npmmirror.com/-/binary/electron-builder-binaries/ npm run pack
+```
 
 ```bash
 node -e "const{statSync,readdirSync}=require('node:fs');for(const f of readdirSync('release')){if(f.endsWith('.exe'))console.log(f,(statSync('release/'+f).size/1048576).toFixed(0)+' MB')}"
