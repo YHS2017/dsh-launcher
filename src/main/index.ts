@@ -1,12 +1,14 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, shell, type Tray } from 'electron'
 import { resolveRuntime } from './core/runtime-resolver.ts'
 import { IPC, type SplashPayload } from './ipc/channels.ts'
 import { resolvePaths, DSH_PACKAGE_SUBPATH } from './paths.ts'
 import { DshSupervisor } from './services/dsh-supervisor.ts'
 import { LogStore } from './services/log-store.ts'
 import { SettingsStore } from './services/settings-store.ts'
+import { createTray } from './ui/tray.ts'
+import { shouldHideOnClose } from './ui/window-manager.ts'
 
 const paths = resolvePaths({
   userData: app.getPath('userData'),
@@ -18,6 +20,9 @@ const logStore = new LogStore(paths.logsDir)
 let splashWindow: BrowserWindow | undefined
 let mainWindow: BrowserWindow | undefined
 let supervisor: DshSupervisor | undefined
+let tray: Tray | undefined
+/** 用户是否已选择退出。托盘「退出」与关窗隐藏共用一个窗口 close 事件，靠它区分。 */
+let quitting = false
 
 /** 读取某个 dsh 包根目录的版本号；不可用时返回 undefined。 */
 function readDshVersion(dshRoot: string): string | undefined {
@@ -61,6 +66,7 @@ function showMainWindow(url: string): void {
     height: 860,
     title: 'DSH启动器',
     show: false,
+    icon: join(paths.resourcesRoot, 'icon.png'),
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   })
   // 主窗口加载的是 dsh 自己的 Web UI，外壳不注入任何脚本。
@@ -69,6 +75,12 @@ function showMainWindow(url: string): void {
     win.show()
     splashWindow?.close()
     splashWindow = undefined
+  })
+  win.on('close', event => {
+    if (!shouldHideOnClose({ closeToTray: settingsStore.read().closeToTray, quitting })) return
+    // agent 任务可能仍在后台跑，关窗不应终止服务。
+    event.preventDefault()
+    win.hide()
   })
   win.on('closed', () => { mainWindow = undefined })
   mainWindow = win
@@ -125,14 +137,35 @@ ipcMain.handle(IPC.splashRetry, async () => {
 ipcMain.handle(IPC.openLogFile, () => shell.openPath(logStore.filePath))
 
 void app.whenReady().then(() => {
+  // 主窗口承载的是 dsh 的 Web UI，不需要 Electron 的默认菜单栏。
+  Menu.setApplicationMenu(null)
+  tray = createTray({
+    iconPath: join(paths.resourcesRoot, 'icon.png'),
+    onShow: () => {
+      if (mainWindow === undefined || mainWindow.isDestroyed()) return
+      mainWindow.show()
+      mainWindow.focus()
+    },
+    onQuit: () => {
+      quitting = true
+      app.quit()
+    },
+  })
   splashWindow = createSplashWindow()
   splashWindow.webContents.once('did-finish-load', () => { startDsh() })
 })
 
-app.on('window-all-closed', () => { app.quit() })
+// 托盘驻留模式下，窗口全关不等于退出——退出只由托盘菜单发起。
+app.on('window-all-closed', () => {
+  if (settingsStore.read().closeToTray && !quitting) return
+  app.quit()
+})
 
 // 退出前把 dsh 收干净，避免留下孤儿进程继续占用端口与资源。
 app.on('before-quit', event => {
+  quitting = true
+  tray?.destroy()
+  tray = undefined
   if (supervisor === undefined || supervisor.state === 'idle') return
   event.preventDefault()
   void supervisor.stop().then(() => {

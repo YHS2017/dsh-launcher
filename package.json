@@ -19,7 +19,8 @@
     "fetch:node": "node scripts/fetch-node-runtime.mjs",
     "fetch:dsh": "node scripts/fetch-dsh-bundle.mjs",
     "prepare:resources": "npm run fetch:node && npm run fetch:dsh",
-    "pack": "npm run build && electron-builder --win --x64"
+    "pack": "npm run build && electron-builder --win --x64",
+    "make:icon": "node scripts/make-icon.mjs resources/icon.png"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
