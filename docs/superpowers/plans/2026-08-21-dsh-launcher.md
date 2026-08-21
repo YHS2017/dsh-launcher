@@ -249,7 +249,13 @@ npm install
 node -e "console.log(require('node:fs').existsSync('node_modules/electron/dist/electron.exe')?'✓ electron 二进制就位':'✗ 二进制缺失，检查 .npmrc 镜像配置')"
 ```
 
-预期：输出「✓ electron 二进制就位」。若缺失，配好 `.npmrc` 后执行 `node node_modules/electron/install.js` 补下。
+预期：输出「✓ electron 二进制就位」（实测约 224 MB）。
+
+若缺失，**不要**直接跑 `node node_modules/electron/install.js` 补救——它不读 `.npmrc`（那是 npm config，只在由 npm 调起时才转成环境变量传入），会继续走 GitHub 并静默卡住。改用环境变量：
+
+```bash
+ELECTRON_MIRROR=https://registry.npmmirror.com/-/binary/electron/ node node_modules/electron/install.js
+```
 
 ```bash
 npm test
