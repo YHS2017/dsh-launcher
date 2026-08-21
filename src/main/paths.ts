@@ -18,6 +18,14 @@ export interface LauncherPaths {
   npmCli: string
   /** 打包资源根目录，托盘与安装包图标从此取。 */
   resourcesRoot: string
+  /** 窗口图标（PNG）。 */
+  windowIcon: string
+  /**
+   * 托盘图标（多尺寸 ICO）。
+   * 托盘实际只显示 16x16（高 DPI 下 20/24），给单张大 PNG 会被缩 16 倍而糊成锯齿；
+   * ICO 里备了各号原生尺寸，系统直接挑最接近的一张，不做缩放。
+   */
+  trayIcon: string
 }
 
 /** npm 安装 @deepseek-ai/dsh 后，包根目录相对于安装前缀的位置。 */
@@ -34,5 +42,7 @@ export function resolvePaths(input: { userData: string; resources: string }): La
     nodeExe: join(nodeRoot, 'node.exe'),
     npmCli: join(nodeRoot, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
     resourcesRoot: input.resources,
+    windowIcon: join(input.resources, 'icon.png'),
+    trayIcon: join(input.resources, 'icon.ico'),
   }
 }

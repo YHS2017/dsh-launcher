@@ -29,4 +29,10 @@ describe('resolvePaths', () => {
   it('暴露资源根目录', () => {
     expect(paths.resourcesRoot).toBe(RESOURCES)
   })
+
+  it('窗口图标用 PNG，托盘图标用多尺寸 ICO', () => {
+    expect(paths.windowIcon).toBe(String.raw`C:\app\resources\icon.png`)
+    // 托盘只显示 16x16，必须给 ICO 让系统挑原生尺寸，否则缩放出锯齿。
+    expect(paths.trayIcon).toBe(String.raw`C:\app\resources\icon.ico`)
+  })
 })

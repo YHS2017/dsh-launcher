@@ -12,9 +12,12 @@ files:
 
 # 内置运行时与 dsh 副本必须放在 asar 之外：
 # node.exe 需要作为真实文件被 spawn，dsh 的依赖树也需要真实的 node_modules 结构。
-# filter 必须显式写成 **/* ：electron-builder 的默认过滤规则会把
-# extraResources 里的 node_modules 整个丢掉，产出一个只含 package.json 的
-# 空壳目录，安装包能打出来但启动即报「内置 dsh 副本不可用」。
+#
+# dsh 这一条的 from 必须直指 node_modules 本身，不能写成父目录 resources/dsh-bundled。
+# electron-builder 会丢弃直接位于 from 根下的 node_modules，产出的 dsh-bundled 是个
+# 空目录，而打包过程零报错、零警告——安装包照常生成，只是装完一启动就报
+# 「内置 dsh 副本不可用」。对照：runtime 那条能带上 node_modules，
+# 是因为它嵌在 runtime/node/ 第二层而非根下。
 extraResources:
   - from: resources/runtime
     to: runtime
@@ -24,12 +27,16 @@ extraResources:
     filter: ['**/*']
   - from: resources/icon.png
     to: icon.png
+  - from: resources/icon.ico
+    to: icon.ico
 
 win:
   target:
     - target: nsis
       arch: [x64]
-  icon: resources/icon.png
+  # 直接给 ICO：里面备了 16~256 各号原生尺寸，任务栏、桌面、文件列表各取所需，
+  # 不必由 electron-builder 从单张 PNG 现转——那样小尺寸会被缩放出锯齿。
+  icon: resources/icon.ico
 
 nsis:
   oneClick: false
@@ -38,3 +45,5 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: DSH启动器
+  # 安装后通知 Shell 刷新图标缓存，否则覆盖安装的桌面快捷方式仍显示旧图标。
+  include: build/installer.nsh

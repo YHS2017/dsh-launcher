@@ -74,7 +74,7 @@ function createSplashWindow(): BrowserWindow {
     skipTaskbar: true,
     show: false,
     title: 'DSH启动器',
-    icon: join(paths.resourcesRoot, 'icon.png'),
+    icon: paths.windowIcon,
     webPreferences: {
       preload: join(import.meta.dirname, '../preload/index.cjs'),
       contextIsolation: true,
@@ -98,7 +98,7 @@ function showMainWindow(url: string): void {
     height: 860,
     title: 'DSH启动器',
     show: false,
-    icon: join(paths.resourcesRoot, 'icon.png'),
+    icon: paths.windowIcon,
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   })
   // 主窗口加载的是 dsh 自己的 Web UI，外壳不注入任何脚本。
@@ -139,7 +139,7 @@ function openShellWindow(
     width: options.width,
     height: options.height,
     title: options.title,
-    icon: join(paths.resourcesRoot, 'icon.png'),
+    icon: paths.windowIcon,
     webPreferences: {
       preload: join(import.meta.dirname, '../preload/index.cjs'),
       contextIsolation: true,
@@ -173,7 +173,7 @@ function openSettingsWindow(): void {
     width: 600,
     height: 620,
     title: '设置 — DSH启动器',
-    icon: join(paths.resourcesRoot, 'icon.png'),
+    icon: paths.windowIcon,
     webPreferences: {
       preload: join(import.meta.dirname, '../preload/index.cjs'),
       contextIsolation: true,
@@ -311,7 +311,7 @@ if (!app.requestSingleInstanceLock()) {
     // 主窗口承载的是 dsh 的 Web UI，不需要 Electron 的默认菜单栏。
     Menu.setApplicationMenu(null)
     tray = createTray({
-      iconPath: join(paths.resourcesRoot, 'icon.png'),
+      iconPath: paths.trayIcon,
       onShow: () => { focusExistingInstance() },
       onSettings: () => { openSettingsWindow() },
       onLogs: () => { openLogsWindow() },
