@@ -1,0 +1,74 @@
+/* 自绘标题栏。系统标题栏用 titleBarStyle:'hidden' 去掉，
+   只保留 titleBarOverlay 画在右上角的最小化/最大化/关闭三颗原生按钮。 */
+:root {
+  --tb-bg: #f3f3f3;
+  --tb-fg: #1a1a1a;
+  --tb-hover: rgba(0, 0, 0, 0.06);
+  --tb-active: rgba(0, 0, 0, 0.12);
+  --tb-line: rgba(0, 0, 0, 0.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tb-bg: #202020;
+    --tb-fg: #e8e8e8;
+    --tb-hover: rgba(255, 255, 255, 0.08);
+    --tb-active: rgba(255, 255, 255, 0.16);
+    --tb-line: rgba(255, 255, 255, 0.1);
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+body {
+  background: var(--tb-bg);
+  color: var(--tb-fg);
+  font: 12px/1 'Microsoft YaHei UI', 'Segoe UI', system-ui, sans-serif;
+  user-select: none;
+  cursor: default;
+}
+
+#bar {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--tb-line);
+  /* 不要整条设 drag 再给按钮挖 no-drag 的洞：本窗口是 BaseWindow + 两个并列的
+     WebContentsView，这种结构下子元素的 no-drag 挖洞不生效，整条会被当成系统
+     标题栏，落在按钮上的点击被吞成"拖动窗口"，渲染层一个 click 事件都收不到。
+     改成默认不可拖、只给图标与空白标题区显式加 drag。 */
+  /* 右侧让开 titleBarOverlay 的三颗系统按钮，宽度取 Windows 的默认值。 */
+  padding-right: 140px;
+}
+
+#mark { width: 16px; height: 16px; margin: 0 8px 0 10px; flex: none; -webkit-app-region: drag; }
+
+#menus { display: flex; gap: 2px; flex: none; }
+
+.menu-btn {
+  height: 24px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: default;
+}
+.menu-btn:hover { background: var(--tb-hover); }
+/* 鼠标点击不画焦点框——按下态已由 aria-expanded 表示；键盘 Tab 过来时仍要有。 */
+.menu-btn:focus { outline: none; }
+.menu-btn:focus-visible { outline: 1px solid currentColor; outline-offset: -3px; }
+/* 菜单弹出期间保持按下态，和系统菜单栏的观感一致。 */
+.menu-btn[aria-expanded='true'] { background: var(--tb-active); }
+
+#title {
+  /* 占满剩余宽度，让标题右侧的空白也能拖动窗口。 */
+  -webkit-app-region: drag;
+  flex: 1;
+  min-width: 0;
+  margin-left: 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.7;
+}

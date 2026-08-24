@@ -1,5 +1,5 @@
 import type { LauncherSettings } from '../main/core/settings-schema.ts'
-import type { AboutInfo, SplashPayload } from '../main/ipc/channels.ts'
+import type { AboutInfo, MenuSectionId, SplashPayload } from '../main/ipc/channels.ts'
 import type { UpdateInfo } from '../main/services/npm-updater.ts'
 
 /**
@@ -20,6 +20,7 @@ export interface LauncherApi {
   installUpdate: (version: string) => Promise<void>
   rollbackRuntime: () => Promise<void>
   quitApp: () => Promise<void>
+  popupMenu: (section: MenuSectionId, x: number, y: number) => Promise<void>
 }
 
 declare global {

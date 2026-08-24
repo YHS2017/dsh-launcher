@@ -1,15 +1,15 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { app, BrowserWindow, ipcMain, Menu, shell, type Tray } from 'electron'
+import { app, BaseWindow, BrowserWindow, ipcMain, Menu, nativeTheme, shell, WebContentsView, type Tray } from 'electron'
 import { resolveRuntime } from './core/runtime-resolver.ts'
 import type { LauncherSettings } from './core/settings-schema.ts'
-import { IPC, type AboutInfo, type SplashPayload } from './ipc/channels.ts'
+import { IPC, type AboutInfo, type MenuSectionId, type SplashPayload } from './ipc/channels.ts'
 import { resolvePaths, DSH_PACKAGE_SUBPATH } from './paths.ts'
 import { DshSupervisor } from './services/dsh-supervisor.ts'
 import { LogStore } from './services/log-store.ts'
 import { NpmUpdater } from './services/npm-updater.ts'
 import { SettingsStore } from './services/settings-store.ts'
-import { buildMainMenu } from './ui/app-menu.ts'
+import { buildSectionMenu, type AppMenuCallbacks } from './ui/app-menu.ts'
 import { createTray } from './ui/tray.ts'
 import { shouldHideOnClose } from './ui/window-manager.ts'
 
@@ -26,7 +26,9 @@ const updater = new NpmUpdater({
 })
 
 let splashWindow: BrowserWindow | undefined
-let mainWindow: BrowserWindow | undefined
+let mainWindow: BaseWindow | undefined
+/** 主窗口里装 dsh 页面的那个视图。菜单的视图类操作与重新载入都要点名操作它。 */
+let mainContentView: WebContentsView | undefined
 let supervisor: DshSupervisor | undefined
 let tray: Tray | undefined
 /** 用户是否已选择退出。托盘「退出」与关窗隐藏共用一个窗口 close 事件，靠它区分。 */
@@ -88,23 +90,118 @@ function createSplashWindow(): BrowserWindow {
   return win
 }
 
+/** 自绘标题栏的高度。菜单画在这一条上，因此窗口内不再单独占一行菜单栏。 */
+const TITLEBAR_HEIGHT = 32
+
+/** titleBarOverlay 的配色不跟随系统主题，主题变了得重新设一次。 */
+function applyOverlayTheme(win: BaseWindow): void {
+  const dark = nativeTheme.shouldUseDarkColors
+  win.setTitleBarOverlay({
+    color: dark ? '#202020' : '#f3f3f3',
+    symbolColor: dark ? '#e8e8e8' : '#1a1a1a',
+    height: TITLEBAR_HEIGHT,
+  })
+}
+
+/**
+ * 主窗口：上面 32px 是外壳自绘的标题栏（承载菜单），其余整块给 dsh。
+ *
+ * 用 BaseWindow + 两个并列的 WebContentsView，而不是往 dsh 页面里塞标题栏——
+ * 上游的 Web UI 一个字节都没被改动，两者只是同一个窗口里的两个兄弟视图。
+ *
+ * 系统标题栏用 titleBarStyle:'hidden' 去掉，再用 titleBarOverlay 把右上角
+ * 那三颗按钮交还给系统画：最小化/最大化/关闭、以及悬停最大化出的 Snap 布局
+ * 都还是原生行为，自己实现这些只会做得更差。
+ */
 function showMainWindow(url: string): void {
   if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
-    void mainWindow.loadURL(url)
+    void mainContentView?.webContents.loadURL(url)
     mainWindow.show()
     return
   }
-  const win = new BrowserWindow({
+  const win = new BaseWindow({
     width: 1280,
     height: 860,
     title: 'DSH启动器',
     show: false,
     icon: paths.windowIcon,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: true,
+  })
+  applyOverlayTheme(win)
+  // 主窗口会被反复重建（重启 dsh、更新后重启），监听器不摘就会一次次累积。
+  const onThemeChange = (): void => {
+    if (!win.isDestroyed()) applyOverlayTheme(win)
+  }
+  nativeTheme.on('updated', onThemeChange)
+
+  const chrome = new WebContentsView({
+    webPreferences: {
+      preload: join(import.meta.dirname, '../preload/index.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+  void chrome.webContents.loadFile(join(import.meta.dirname, '../renderer/titlebar/index.html'))
+
+  // 装 dsh 的那个视图不挂 preload：外壳不往上游页面注入任何脚本。
+  const content = new WebContentsView({
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   })
-  // 菜单只挂在主窗口上。托盘图标在 Windows 11 默认被折叠进溢出区，
-  // 若不给菜单栏，设置与更新就没有任何看得见的入口。
-  win.setMenu(buildMainMenu({
+  void content.webContents.loadURL(url)
+
+  win.contentView.addChildView(chrome)
+  win.contentView.addChildView(content)
+
+  // WebContentsView 不会自己跟随窗口尺寸，每次 resize 都要重新摆。
+  const layout = (): void => {
+    const { width, height } = win.getContentBounds()
+    chrome.setBounds({ x: 0, y: 0, width, height: TITLEBAR_HEIGHT })
+    content.setBounds({ x: 0, y: TITLEBAR_HEIGHT, width, height: Math.max(0, height - TITLEBAR_HEIGHT) })
+  }
+  layout()
+  win.on('resize', layout)
+
+  // 刻意不把 dsh 页面的标题转发到窗口标题或标题栏：那个标题是完整商标
+  // 「DeepSeek Harness」，而窗口标题属于本项目的身份标识，按约束不得出现它。
+  // BaseWindow 不像 BrowserWindow 那样自动继承页面标题，不设即保持 'DSH启动器'。
+
+  content.webContents.once('did-finish-load', () => {
+    win.show()
+    // 焦点交给 dsh。不给的话它会停在标题栏视图上，第一个菜单按钮带着焦点框显示。
+    content.webContents.focus()
+    splashWindow?.close()
+    splashWindow = undefined
+  })
+
+  win.on('close', event => {
+    if (!shouldHideOnClose({ closeToTray: settingsStore.read().closeToTray, quitting })) return
+    // agent 任务可能仍在后台跑，关窗不应终止服务。
+    event.preventDefault()
+    win.hide()
+  })
+  win.on('closed', () => {
+    nativeTheme.off('updated', onThemeChange)
+    mainWindow = undefined
+    mainContentView = undefined
+  })
+  mainWindow = win
+  mainContentView = content
+}
+
+/**
+ * 菜单项的行为。
+ *
+ * 视图类操作必须点名操作装 dsh 的那个视图：弹出菜单时聚焦的是标题栏视图，
+ * 用 role 的话「重新加载」会去刷新标题栏自己。
+ */
+function mainMenuCallbacks(): AppMenuCallbacks {
+  const contents = mainContentView?.webContents
+  const zoomBy = (step: number): void => {
+    if (contents === undefined) return
+    contents.setZoomLevel(Math.max(-5, Math.min(5, contents.getZoomLevel() + step)))
+  }
+  return {
     onSettings: () => { openSettingsWindow() },
     onCheckUpdate: () => { openSettingsWindow('update') },
     onLogs: () => { openLogsWindow() },
@@ -114,22 +211,15 @@ function showMainWindow(url: string): void {
       quitting = true
       app.quit()
     },
-  }))
-  // 主窗口加载的是 dsh 自己的 Web UI，外壳不注入任何脚本。
-  void win.loadURL(url)
-  win.once('ready-to-show', () => {
-    win.show()
-    splashWindow?.close()
-    splashWindow = undefined
-  })
-  win.on('close', event => {
-    if (!shouldHideOnClose({ closeToTray: settingsStore.read().closeToTray, quitting })) return
-    // agent 任务可能仍在后台跑，关窗不应终止服务。
-    event.preventDefault()
-    win.hide()
-  })
-  win.on('closed', () => { mainWindow = undefined })
-  mainWindow = win
+    onReload: () => { contents?.reload() },
+    onZoomReset: () => { contents?.setZoomLevel(0) },
+    onZoomIn: () => { zoomBy(0.5) },
+    onZoomOut: () => { zoomBy(-0.5) },
+    onToggleFullScreen: () => {
+      if (mainWindow === undefined || mainWindow.isDestroyed()) return
+      mainWindow.setFullScreen(!mainWindow.isFullScreen())
+    },
+  }
 }
 
 let settingsWindow: BrowserWindow | undefined
@@ -286,6 +376,16 @@ ipcMain.handle(IPC.quitApp, () => {
 ipcMain.handle(IPC.settingsRead, () => settingsStore.read())
 ipcMain.handle(IPC.settingsUpdate, (_event, patch: Partial<LauncherSettings>) => settingsStore.update(patch))
 ipcMain.handle(IPC.dshRestart, () => restartFromSplash())
+
+// 标题栏上点了菜单名。invoke 直到菜单关闭才 resolve，渲染层据此复位按钮的按下态。
+ipcMain.handle(IPC.menuPopup, async (_event, section: MenuSectionId, x: number, y: number) => {
+  const win = mainWindow
+  if (win === undefined || win.isDestroyed()) return
+  const menu = buildSectionMenu(section, mainMenuCallbacks())
+  await new Promise<void>(resolve => {
+    menu.popup({ window: win, x, y, callback: () => { resolve() } })
+  })
+})
 ipcMain.handle(IPC.updateCheck, async () => {
   const settings = settingsStore.read()
   const current = activeChoice?.version ?? '0.0.0'

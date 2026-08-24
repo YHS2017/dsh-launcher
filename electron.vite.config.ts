@@ -27,6 +27,7 @@ export default defineConfig({
           settings: resolve('src/renderer/settings/index.html'),
           logs: resolve('src/renderer/logs/index.html'),
           about: resolve('src/renderer/about/index.html'),
+          titlebar: resolve('src/renderer/titlebar/index.html'),
         },
       },
     },
