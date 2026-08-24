@@ -30,12 +30,48 @@ extraResources:
     # 排除与本包目标架构（win32-x64）无关的预编译二进制，约 13MB。
     # 只排架构明确不符的，不碰 sharp-wasm32 之类的回退实现——
     # 那是原生模块加载失败时的兜底路径，省那几 MB 不值得赌它用不上。
+    #
+    # 后半段排掉运行期用不到的文件。这里的收益主要不是体积而是文件数：
+    # 复制三万多个小文件本身就是打包耗时的大头（每个写入还要过一遍实时杀毒），
+    # 而其中约六成是 sourcemap、类型声明、文档和测试。
+    #
+    # electron-builder 的 filter 是「后面的模式可以翻转前面的结论」：
+    # 先被 ! 排掉的文件，之后再被一条非取反模式匹配到就会重新纳入。
+    # 许可证那条正是靠这个机制放回来的，位置不能往前挪。
     filter:
       - '**/*'
       - '!node-pty/prebuilds/win32-arm64/**'
       - '!node-pty/prebuilds/darwin-*/**'
       - '!node-pty/prebuilds/linux-*/**'
       - '!node-pty/third_party/**/win10-arm64/**'
+      # sourcemap 与类型声明：Node 运行期一律不读。
+      - '!**/*.map'
+      - '!**/*.d.ts'
+      - '!**/*.d.mts'
+      - '!**/*.d.cts'
+      # TypeScript 源码。注意 Node 24 默认开启类型擦除、确实能直接跑 .ts，
+      # 所以这条不是「绝对安全」——已发布的 npm 包入口几乎都指向编译后的 JS，
+      # 但如果哪天 acceptance 报内置 dsh 起不来，先把这四条摘掉验证。
+      - '!**/*.ts'
+      - '!**/*.tsx'
+      - '!**/*.mts'
+      - '!**/*.cts'
+      # 文档与测试。
+      #
+      # 这里的目录名不能想当然地加：node_modules 下同名的既可能是包内的测试目录，
+      # 也可能是一个真实依赖包。spec 就踩过——@standard-schema/spec 是真包，
+      # 被 !**/spec/** 整个清空（只剩靠下面许可证那条捞回的 LICENSE），
+      # 而打包零报错、体积正常，只有运行到用它的代码路径才会炸。
+      # 它只对应 1 个真正的测试目录，不值得赌，已从列表移除。
+      # benchmark 保留：唯一同名的 fast-uri/benchmark 是包内基准目录，没人 require。
+      - '!**/*.md'
+      - '!**/{test,tests,__tests__,__mocks__}/**'
+      - '!**/{example,examples,demo,benchmark,benchmarks}/**'
+      - '!**/{CHANGELOG,HISTORY,AUTHORS,CONTRIBUTING}*'
+      # 许可证与版权声明必须随分发保留——依赖树里的 MIT/BSD/Apache 都要求
+      # 在再分发时附上许可证全文与版权声明。这条放在最后把它们捞回来，
+      # 因为上面的 !**/*.md 会连 LICENSE.md 一起排掉。
+      - '**/{LICENSE,LICENCE,COPYING,NOTICE}*'
   - from: resources/icon.png
     to: icon.png
   - from: resources/icon.ico

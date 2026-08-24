@@ -9,6 +9,7 @@ import { DshSupervisor } from './services/dsh-supervisor.ts'
 import { LogStore } from './services/log-store.ts'
 import { NpmUpdater } from './services/npm-updater.ts'
 import { SettingsStore } from './services/settings-store.ts'
+import { buildMainMenu } from './ui/app-menu.ts'
 import { createTray } from './ui/tray.ts'
 import { shouldHideOnClose } from './ui/window-manager.ts'
 
@@ -101,6 +102,19 @@ function showMainWindow(url: string): void {
     icon: paths.windowIcon,
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   })
+  // 菜单只挂在主窗口上。托盘图标在 Windows 11 默认被折叠进溢出区，
+  // 若不给菜单栏，设置与更新就没有任何看得见的入口。
+  win.setMenu(buildMainMenu({
+    onSettings: () => { openSettingsWindow() },
+    onCheckUpdate: () => { openSettingsWindow('update') },
+    onLogs: () => { openLogsWindow() },
+    onRestartDsh: () => { void restartFromSplash() },
+    onAbout: () => { openAboutWindow() },
+    onQuit: () => {
+      quitting = true
+      app.quit()
+    },
+  }))
   // 主窗口加载的是 dsh 自己的 Web UI，外壳不注入任何脚本。
   void win.loadURL(url)
   win.once('ready-to-show', () => {
@@ -163,10 +177,24 @@ function openAboutWindow(): void {
   }, win => { aboutWindow = win })
 }
 
-function openSettingsWindow(): void {
+/**
+ * 让设置窗口滚到指定区块。
+ *
+ * 设置页是外壳自己的页面，不是 dsh 的 Web UI，所以这里直接注入一行滚动脚本；
+ * 单为「跳到某个区块」开一条 IPC 推送通道不值得。
+ */
+function scrollSettingsTo(win: BrowserWindow, section: string): void {
+  void win.webContents.executeJavaScript(
+    `document.getElementById(${JSON.stringify(section)})?.scrollIntoView({ behavior: 'smooth' })`,
+  )
+}
+
+/** section 用于从菜单「检查更新…」直接落到更新区块——它在设置页最下面，不滚过去等于没入口。 */
+function openSettingsWindow(section?: 'update'): void {
   if (settingsWindow !== undefined && !settingsWindow.isDestroyed()) {
     settingsWindow.show()
     settingsWindow.focus()
+    if (section !== undefined) scrollSettingsTo(settingsWindow, section)
     return
   }
   const win = new BrowserWindow({
@@ -181,6 +209,10 @@ function openSettingsWindow(): void {
     },
   })
   void win.loadFile(join(import.meta.dirname, '../renderer/settings/index.html'))
+  if (section !== undefined) {
+    // 首次打开要等页面加载完才有节点可滚。
+    win.webContents.once('did-finish-load', () => { scrollSettingsTo(win, section) })
+  }
   win.on('closed', () => { settingsWindow = undefined })
   settingsWindow = win
 }
@@ -308,7 +340,8 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on('second-instance', () => { focusExistingInstance() })
   void app.whenReady().then(() => {
-    // 主窗口承载的是 dsh 的 Web UI，不需要 Electron 的默认菜单栏。
+    // 清掉 Electron 的默认英文菜单栏，让启动页与设置/日志/关于这些子窗口都不带菜单。
+    // 主窗口另行用 BrowserWindow.setMenu 挂自己的中文菜单（见 showMainWindow）。
     Menu.setApplicationMenu(null)
     tray = createTray({
       iconPath: paths.trayIcon,

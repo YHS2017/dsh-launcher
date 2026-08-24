@@ -19,8 +19,8 @@
     "fetch:node": "node scripts/fetch-node-runtime.mjs",
     "fetch:dsh": "node scripts/fetch-dsh-bundle.mjs",
     "prepare:resources": "npm run fetch:node && npm run fetch:dsh",
-    "pack": "node scripts/pack-detached.mjs",
-    "pack:dir": "node scripts/pack-detached.mjs --dir",
+    "pack": "node scripts/pack.mjs",
+    "pack:dir": "node scripts/pack.mjs --dir",
     "pack:inline": "npm run verify:resources && npm run build && electron-builder --win --x64",
     "pack:dir:inline": "npm run verify:resources && npm run build && electron-builder --win --x64 --dir",
     "make:icon": "node scripts/make-icon.mjs resources/icon.png",
@@ -28,9 +28,10 @@
     "acceptance": "node scripts/acceptance.mjs \"release/win-unpacked/DSH启动器.exe\"",
     "check:single-instance": "node scripts/check-single-instance.mjs \"release/win-unpacked/DSH启动器.exe\"",
     "check:preload": "node scripts/check-preload.mjs \"release/win-unpacked/DSH启动器.exe\"",
+    "check:bundled-dsh": "node scripts/check-bundled-dsh.mjs",
     "check:installer": "node scripts/check-installer.mjs",
-    "check:artifacts": "node scripts/verify-resources.mjs && node scripts/check-preload.mjs \"release/win-unpacked/DSH启动器.exe\"",
-    "verify:all": "npm run acceptance && npm run check:single-instance && npm run check:preload && npm run check:installer"
+    "check:artifacts": "node scripts/verify-resources.mjs && node scripts/check-bundled-dsh.mjs && node scripts/check-preload.mjs \"release/win-unpacked/DSH启动器.exe\"",
+    "verify:all": "npm run acceptance && npm run check:single-instance && npm run check:preload && npm run check:bundled-dsh && npm run check:installer"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
