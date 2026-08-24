@@ -46,9 +46,12 @@ win:
     - target: nsis
       arch: [x64]
   # 跳过代码签名。本项目没有签名证书，这道工序不产生任何结果，
-  # 却要对 dsh 依赖树里的每个 exe/dll（node-pty 的 OpenConsole.exe、
-  # ripgrep 的 rg.exe 等）逐个调 signtool——极慢，实测直接卡死在这一步：
-  # CPU 归零、日志停更、进程还在但不再推进，且不报错。
+  # 却要对 dsh 依赖树里的每个 exe（node-pty 的 OpenConsole.exe、
+  # ripgrep 的 rg.exe 等）逐个调 signtool，纯属白花时间。
+  #
+  # 注：曾经把"打包卡死"归因于这一步，那是误判——真正原因是 stdio 接在了
+  # 会缓冲的管道上，管道写满后进程阻塞在 write()。详见 README「打包」一节。
+  # 关掉签名依然是对的，只是它省下的是几秒而非几分钟。
   #
   # 注意它与 signAndEditExecutable 是两回事：后者默认 true，负责用 resedit
   # 给主 exe 写入图标与版本信息，必须保留，关掉会导致 exe 没有图标。
@@ -58,9 +61,6 @@ win:
   icon: resources/icon.ico
 
 nsis:
-  # 不生成 blockmap。它服务于增量更新，而本项目不做自动更新，
-  # 生成它却要把整个包再扫一遍。
-  differentialPackage: false
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
