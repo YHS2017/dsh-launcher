@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app, BaseWindow, BrowserWindow, ipcMain, Menu, nativeTheme, shell, WebContentsView, type Tray } from 'electron'
+import { readDshVersion } from './core/dsh-version.ts'
 import { resolveRuntime } from './core/runtime-resolver.ts'
 import type { LauncherSettings } from './core/settings-schema.ts'
 import { IPC, type AboutInfo, type MenuSectionId, type SplashPayload } from './ipc/channels.ts'
@@ -35,17 +35,6 @@ let tray: Tray | undefined
 let quitting = false
 /** 已经因启动失败自动回退过一次，避免回退—失败—再回退的循环。 */
 let rolledBackOnce = false
-
-/** 读取某个 dsh 包根目录的版本号；不可用时返回 undefined。 */
-function readDshVersion(dshRoot: string): string | undefined {
-  try {
-    if (!existsSync(join(dshRoot, 'lib', 'bin.js'))) return undefined
-    const manifest = JSON.parse(readFileSync(join(dshRoot, 'package.json'), 'utf8')) as { version?: unknown }
-    return typeof manifest.version === 'string' ? manifest.version : undefined
-  } catch {
-    return undefined
-  }
-}
 
 /** 启动页两种状态的窗口高度：失败时要额外容纳错误详情与按钮。 */
 const SPLASH_WIDTH = 460

@@ -31,6 +31,16 @@ export interface LauncherPaths {
 /** npm 安装 @deepseek-ai/dsh 后，包根目录相对于安装前缀的位置。 */
 export const DSH_PACKAGE_SUBPATH = join('node_modules', '@deepseek-ai', 'dsh')
 
+/**
+ * 外壳用户数据目录在 %APPDATA% 下的目录名。
+ *
+ * Electron 侧由 app.getPath('userData') 按 package.json 的 name 自动推出，
+ * 而命令行入口（bin/dsh-cli.mjs）不经过 Electron，得自己拼这个路径。
+ * 两边必须是同一个名字，否则命令行会读到一份空设置、永远跑内置版本——
+ * 有单元测试断言它与 package.json 的 name 相等，改名时会被拦下。
+ */
+export const USER_DATA_DIR_NAME = 'dsh-launcher'
+
 export function resolvePaths(input: { userData: string; resources: string }): LauncherPaths {
   const nodeRoot = join(input.resources, 'runtime', 'node')
   return {

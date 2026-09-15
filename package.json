@@ -12,7 +12,7 @@
   },
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "build": "electron-vite build && vite build -c vite.cli.config.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
@@ -29,9 +29,10 @@
     "check:single-instance": "node scripts/check-single-instance.mjs \"release/win-unpacked/DSH启动器.exe\"",
     "check:preload": "node scripts/check-preload.mjs \"release/win-unpacked/DSH启动器.exe\"",
     "check:bundled-dsh": "node scripts/check-bundled-dsh.mjs",
+    "check:cli": "node scripts/check-cli.mjs",
     "check:installer": "node scripts/check-installer.mjs",
-    "check:artifacts": "node scripts/verify-resources.mjs && node scripts/check-bundled-dsh.mjs && node scripts/check-preload.mjs \"release/win-unpacked/DSH启动器.exe\"",
-    "verify:all": "npm run acceptance && npm run check:single-instance && npm run check:preload && npm run check:bundled-dsh && npm run check:installer"
+    "check:artifacts": "node scripts/verify-resources.mjs && node scripts/check-preload.mjs \"release/win-unpacked/DSH启动器.exe\" && node scripts/check-bundled-dsh.mjs && node scripts/check-cli.mjs",
+    "verify:all": "npm run acceptance && npm run check:single-instance && npm run check:preload && npm run check:bundled-dsh && npm run check:cli && npm run check:installer"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

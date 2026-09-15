@@ -59,6 +59,9 @@ const checks = [
   ['安装钩子 customInstall', /!macro\s+customInstall/.test(nsh)],
   ['卸载钩子 customUnInstall', /!macro\s+customUnInstall/.test(nsh)],
   ['图标缓存刷新调用', /shell32::SHChangeNotify/.test(nsh)],
+  // 安装加 PATH、卸载移除，两条都得在——少一条就是装了删不干净或删了装不上。
+  ['安装时把 bin 加进 PATH', /path-setup\.ps1[^\r\n]*-Action add\b/.test(nsh)],
+  ['卸载时从 PATH 移除', /path-setup\.ps1[^\r\n]*-Action remove\b/.test(nsh)],
 ]
 
 let ok = true

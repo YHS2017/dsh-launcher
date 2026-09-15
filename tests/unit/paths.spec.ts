@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { resolvePaths } from '../../src/main/paths.ts'
+import { resolvePaths, USER_DATA_DIR_NAME } from '../../src/main/paths.ts'
 
 // 用 String.raw 写 Windows 路径，避免反斜杠被当成字符串转义。
 const USER_DATA = String.raw`C:\data`
@@ -34,5 +35,12 @@ describe('resolvePaths', () => {
     expect(paths.windowIcon).toBe(String.raw`C:\app\resources\icon.png`)
     // 托盘只显示 16x16，必须给 ICO 让系统挑原生尺寸，否则缩放出锯齿。
     expect(paths.trayIcon).toBe(String.raw`C:\app\resources\icon.ico`)
+  })
+})
+
+describe('USER_DATA_DIR_NAME', () => {
+  it('与 package.json 的 name 一致——Electron 的 userData 目录名由 name 推出，命令行入口靠此常量拼同一路径', () => {
+    const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as { name: string }
+    expect(USER_DATA_DIR_NAME).toBe(pkg.name)
   })
 })

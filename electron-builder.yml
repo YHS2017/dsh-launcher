@@ -11,7 +11,20 @@ directories:
 
 files:
   - out/**
+  # 命令行入口作为松散文件放在 bin/ 下（见 extraFiles），由内置 Node 直接执行，
+  # 进了 asar 反而读不到——纯 Node 不认识 asar。
+  - '!out/cli/**'
   - package.json
+
+# 安装目录根下的 bin/：dsh 命令行入口。
+# dsh.cmd 与 path-setup.ps1 是手写的壳，dsh-cli.mjs 由 vite.cli.config.ts 单独打包。
+# 安装时 installer.nsh 把这个目录加进 PATH，卸载时移除。
+extraFiles:
+  - from: build/bin
+    to: bin
+    filter: ['**/*']
+  - from: out/cli/dsh-cli.mjs
+    to: bin/dsh-cli.mjs
 
 # 内置运行时与 dsh 副本必须放在 asar 之外：
 # node.exe 需要作为真实文件被 spawn，dsh 的依赖树也需要真实的 node_modules 结构。
