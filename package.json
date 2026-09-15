@@ -1,6 +1,6 @@
 {
   "name": "dsh-launcher",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "基于 DeepSeek Harness 构建的非官方桌面客户端",
   "main": "out/main/index.js",
   "type": "module",
